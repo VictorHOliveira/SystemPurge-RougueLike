@@ -32,10 +32,6 @@ export class GameScene extends Phaser.Scene {
   private entitySprites = new Map<string, Phaser.GameObjects.Image>();
   private isAnimating = false;
   private moveCooldown = 0;
-  private keyW!: Phaser.Input.Keyboard.Key;
-  private keyS!: Phaser.Input.Keyboard.Key;
-  private keyA!: Phaser.Input.Keyboard.Key;
-  private keyD!: Phaser.Input.Keyboard.Key;
   private arrowUp!: Phaser.Input.Keyboard.Key;
   private arrowDown!: Phaser.Input.Keyboard.Key;
   private arrowLeft!: Phaser.Input.Keyboard.Key;
@@ -56,12 +52,7 @@ export class GameScene extends Phaser.Scene {
     this.generateFloor();
     this.cameras.main.setViewport(0, 0, 640, 640);
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
-    const wasd = this.input.keyboard!.addKeys('W,S,A,D') as { W: Phaser.Input.Keyboard.Key; S: Phaser.Input.Keyboard.Key; A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key };
     const arrows = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT') as { UP: Phaser.Input.Keyboard.Key; DOWN: Phaser.Input.Keyboard.Key; LEFT: Phaser.Input.Keyboard.Key; RIGHT: Phaser.Input.Keyboard.Key };
-    this.keyW = wasd.W;
-    this.keyS = wasd.S;
-    this.keyA = wasd.A;
-    this.keyD = wasd.D;
     this.arrowUp = arrows.UP;
     this.arrowDown = arrows.DOWN;
     this.arrowLeft = arrows.LEFT;
@@ -93,10 +84,10 @@ export class GameScene extends Phaser.Scene {
 
     let dx = 0;
     let dy = 0;
-    if (this.keyW.isDown || this.arrowUp.isDown) dy -= 1;
-    if (this.keyS.isDown || this.arrowDown.isDown) dy += 1;
-    if (this.keyA.isDown || this.arrowLeft.isDown) dx -= 1;
-    if (this.keyD.isDown || this.arrowRight.isDown) dx += 1;
+    if (this.arrowUp.isDown) dy -= 1;
+    if (this.arrowDown.isDown) dy += 1;
+    if (this.arrowLeft.isDown) dx -= 1;
+    if (this.arrowRight.isDown) dx += 1;
 
     if (dx === 0 && dy === 0) {
       this.moveCooldown = 0;
@@ -269,6 +260,27 @@ export class GameScene extends Phaser.Scene {
       e.preventDefault();
       this.endTurn();
     }
+
+    if (e.key === 'w' || e.key === 'W') {
+      if (this.isAnimating) return;
+      if (!this.turnSystem?.isPlayerTurn) return;
+      this.fireProjectile(0, -1);
+    }
+    if (e.key === 's' || e.key === 'S') {
+      if (this.isAnimating) return;
+      if (!this.turnSystem?.isPlayerTurn) return;
+      this.fireProjectile(0, 1);
+    }
+    if (e.key === 'a' || e.key === 'A') {
+      if (this.isAnimating) return;
+      if (!this.turnSystem?.isPlayerTurn) return;
+      this.fireProjectile(-1, 0);
+    }
+    if (e.key === 'd' || e.key === 'D') {
+      if (this.isAnimating) return;
+      if (!this.turnSystem?.isPlayerTurn) return;
+      this.fireProjectile(1, 0);
+    }
   }
 
   private processMove(dx: number, dy: number) {
@@ -322,6 +334,50 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.endTurn();
     }
+  }
+
+  private getDirEnemy(dx: number, dy: number): { x: number; y: number; enemy: Enemy | null } {
+    const range = Math.ceil(this.player.effectiveFov);
+    for (let i = 1; i <= range; i++) {
+      const tx = this.player.x + dx * i;
+      const ty = this.player.y + dy * i;
+      if (!this.map.isInBounds(tx, ty)) return { x: tx - dx, y: ty - dy, enemy: null };
+      if (this.map.tiles[ty][tx] === TileType.WALL) return { x: tx - dx, y: ty - dy, enemy: null };
+      const enemy = this.enemies.find(e => e.x === tx && e.y === ty && e.isAlive);
+      if (enemy) return { x: tx, y: ty, enemy };
+    }
+    return { x: this.player.x + dx * range, y: this.player.y + dy * range, enemy: null };
+  }
+
+  private fireProjectile(dx: number, dy: number) {
+    const target = this.getDirEnemy(dx, dy);
+    if (target.x === this.player.x && target.y === this.player.y) return;
+    if (this.isAnimating) return;
+
+    this.isAnimating = true;
+    const proj = this.add.image(
+      this.player.x * TILE + TILE / 2,
+      this.player.y * TILE + TILE / 2,
+      'projectile_player',
+    ).setOrigin(0.5, 0.5).setDepth(15);
+
+    this.tweens.add({
+      targets: proj,
+      x: target.x * TILE + TILE / 2,
+      y: target.y * TILE + TILE / 2,
+      duration: 80,
+      ease: 'Linear',
+      onComplete: () => {
+        proj.destroy();
+        this.isAnimating = false;
+        if (target.enemy) {
+          this.meleeAttack(this.player, target.enemy);
+        } else {
+          this.messageLog.add('Projectile hit the wall.');
+        }
+        this.endTurn();
+      },
+    });
   }
 
   private endTurn() {

@@ -144,5 +144,16 @@ export class BootScene extends Phaser.Scene {
     this.entityCircle('enemy_worm', 0xff8800, 0xffaa33);
     this.entityCircle('enemy_spyware', 0xaa44ff, 0xcc77ff);
     this.bossCircle('enemy_boss', 0xff0044, 0xff3377);
+    this.projectileSprite('projectile_player', 0x44ffaa, 0xffffff);
+  }
+
+  private projectileSprite(key: string, color: number, core: number) {
+    const g = this.add.graphics();
+    g.fillStyle(color);
+    g.fillCircle(16, 16, 4);
+    g.fillStyle(core);
+    g.fillCircle(16, 16, 2);
+    g.generateTexture(key, 32, 32);
+    g.destroy();
   }
 }

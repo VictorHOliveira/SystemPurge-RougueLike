@@ -2,6 +2,41 @@ import { Map } from 'rot-js';
 import { GameMap, Room } from '../world/GameMap';
 import { TileType } from '../data/tiles';
 
+function isInRoom(x: number, y: number, rooms: Room[]): boolean {
+  for (const room of rooms) {
+    if (x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function countWalkableNeighbors(x: number, y: number, map: GameMap): number {
+  let count = 0;
+  if (map.isInBounds(x, y - 1) && map.tiles[y - 1][x] !== TileType.WALL) count++;
+  if (map.isInBounds(x, y + 1) && map.tiles[y + 1][x] !== TileType.WALL) count++;
+  if (map.isInBounds(x - 1, y) && map.tiles[y][x - 1] !== TileType.WALL) count++;
+  if (map.isInBounds(x + 1, y) && map.tiles[y][x + 1] !== TileType.WALL) count++;
+  return count;
+}
+
+function pruneDeadEnds(map: GameMap, rooms: Room[]): void {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        if (map.tiles[y][x] !== TileType.FLOOR) continue;
+        if (isInRoom(x, y, rooms)) continue;
+        if (countWalkableNeighbors(x, y, map) <= 1) {
+          map.setTile(x, y, TileType.WALL);
+          changed = true;
+        }
+      }
+    }
+  }
+}
+
 export interface MapGenResult {
   map: GameMap;
   rooms: GameMap['rooms'];
@@ -90,6 +125,8 @@ export class MapGen {
       }
       if (best !== -1) digCorridor(gameMap, rooms[i].cx, rooms[i].cy, rooms[best].cx, rooms[best].cy);
     }
+
+    pruneDeadEnds(gameMap, rooms);
 
     const lastRoom = rooms[rooms.length - 1];
     const stairsPos = { x: lastRoom.cx, y: lastRoom.cy };
