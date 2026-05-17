@@ -153,9 +153,9 @@ export class GameScene extends Phaser.Scene {
       if (i === this.bossRoomIdx) {
         const scaled = {
           ...BOSS_TEMPLATE,
-          hp: Math.ceil(this.player.maxHp * floorMult),
-          attack: Math.ceil(this.player.defense * floorMult),
-          defense: Math.ceil(this.player.attack * floorMult * 0.65),
+          hp: Math.ceil(this.player.maxHp * floorMult * 0.5 + 10),
+          attack: Math.ceil(3 + this.player.attack * floorMult * 0.4),
+          defense: Math.ceil(1 + this.player.defense * floorMult * 0.3),
         };
         this.enemies.push(new Enemy(scaled, r.cx, r.cy));
       } else {
