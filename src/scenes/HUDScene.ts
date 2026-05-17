@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { version } from '../../package.json';
 
 const HUD_X = 648;
 const BAR_W = 294;
@@ -160,7 +161,7 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private buildFooter() {
-    this.add.text(HUD_X, 624, 'System Purge v0.1', {
+    this.add.text(HUD_X, 624, `System Purge v${version}`, {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '10px',
       color: '#334455',
