@@ -27,7 +27,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     this.generateTiles();
     trackEvent('game_start', { version });
-    this.scene.start('Game');
+    this.scene.start('MainMenu');
   }
 
   private generateTiles() {

@@ -36,17 +36,18 @@ export class PauseScene extends Phaser.Scene {
     divider.lineStyle(1, 0x2a4a3a);
     divider.lineBetween(340, 212, 620, 212);
 
-    this.addButton(480, 260, '[ Continuar ]', '#44ddbb', () => this.resumeGame());
-    this.addButton(480, 310, '[ Comandos ]', '#44aaff', () => this.showCommands());
-    this.addButton(480, 360, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
+    this.addButton(480, 250, '[ Continuar ]', '#44ddbb', () => this.resumeGame());
+    this.addButton(480, 300, '[ Comandos ]', '#44aaff', () => this.showCommands());
+    this.addButton(480, 350, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
+    this.addButton(480, 400, '[ Menu Inicial ]', '#ffd700', () => this.goToMainMenu());
 
-    this.add.text(480, 420, 'Setas para navegar | ENTER para selecionar', {
+    this.add.text(480, 460, 'Setas para navegar | ENTER para selecionar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
     }).setOrigin(0.5);
 
-    this.add.text(480, 440, 'ESC para continuar', {
+    this.add.text(480, 478, 'ESC para continuar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
@@ -169,6 +170,15 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private restartGame() {
-    window.location.reload();
+    this.scene.stop('HUD');
+    this.scene.stop();
+    this.scene.start('Game');
+  }
+
+  private goToMainMenu() {
+    this.scene.stop('HUD');
+    this.scene.stop('Game');
+    this.scene.stop();
+    this.scene.start('MainMenu');
   }
 }
