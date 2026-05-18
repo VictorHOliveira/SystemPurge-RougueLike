@@ -10,6 +10,7 @@ import { MessageLog } from '../ui/MessageLog';
 import { TileType } from '../data/tiles';
 import { randomEnemyTemplate, BOSS_TEMPLATE } from '../data/enemies';
 import { rollUpgrades } from '../data/upgrades';
+import { trackEvent } from '../analytics';
 
 const MAP_W = 60;
 const MAP_H = 40;
@@ -194,6 +195,7 @@ export class GameScene extends Phaser.Scene {
       if (this.player.floor % 5 === 0) {
         this.messageLog.add('*** ALERTA: ROOTKIT DETECTADO ***');
       }
+      trackEvent('floor_reach', { floor: this.player.floor, level: this.player.level });
     } else {
       this.messageLog.add('SYSTEM PURGE v0.1 — Kernel inicializado.');
     }
@@ -218,6 +220,7 @@ export class GameScene extends Phaser.Scene {
         options: [upg],
         acquired: this.player.acquiredUpgrades,
         mode: 'reveal',
+        floor: this.player.floor,
         onSelect: () => {
           this.scene.resume();
         },
@@ -388,6 +391,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.player.isAlive) {
       this.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
+      trackEvent('player_death', { floor: this.player.floor, level: this.player.level, kills: this.kills });
       return;
     }
 
@@ -411,11 +415,13 @@ export class GameScene extends Phaser.Scene {
       const by = enemy.y;
       this.chests.set(`${bx},${by}`, false);
       this.messageLog.add('Um baú de tesouro aparece!');
+      trackEvent('boss_kill', { floor: this.player.floor, level: this.player.level });
     }
 
     const leveled = this.player.addXp(enemy.xpValue);
     if (leveled) {
       this.messageLog.add(`*** SISTEMA ATUALIZADO para v${this.player.level} ***`);
+      trackEvent('level_up', { new_level: this.player.level, floor: this.player.floor, kills: this.kills });
       this.showUpgradeChoices();
     }
   }
@@ -474,6 +480,7 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('Upgrade', {
       options,
       acquired: this.player.acquiredUpgrades,
+      floor: this.player.floor,
       onSelect: (id: string) => {
         this.player.applyUpgrade(id);
         this.fov = new FOVSystem(this.player.effectiveFov);
@@ -533,6 +540,7 @@ export class GameScene extends Phaser.Scene {
         this.meleeAttack(enemy, this.player);
         if (!this.player.isAlive) {
       this.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
+      trackEvent('player_death', { floor: this.player.floor, level: this.player.level, kills: this.kills });
           return;
     }
     }

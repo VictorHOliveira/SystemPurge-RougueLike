@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { Upgrade } from '../data/upgrades';
+import { trackEvent } from '../analytics';
 
 export class UpgradeScene extends Phaser.Scene {
   private options: Upgrade[] = [];
@@ -8,16 +9,18 @@ export class UpgradeScene extends Phaser.Scene {
   private selectedIndex = 0;
   private cards: { bg: Phaser.GameObjects.Graphics; y: number }[] = [];
   private mode: 'choice' | 'reveal' = 'choice';
+  private floor: number = 1;
 
   constructor() {
     super('Upgrade');
   }
 
-  init(data: { options: Upgrade[]; onSelect: (id: string) => void; acquired: Map<string, number>; mode?: 'choice' | 'reveal' }) {
+  init(data: { options: Upgrade[]; onSelect: (id: string) => void; acquired: Map<string, number>; mode?: 'choice' | 'reveal'; floor?: number }) {
     this.options = data.options;
     this.onSelect = data.onSelect;
     this.acquired = data.acquired;
     this.mode = data.mode ?? 'choice';
+    this.floor = data.floor ?? 1;
   }
 
   create() {
@@ -77,7 +80,9 @@ export class UpgradeScene extends Phaser.Scene {
   }
 
   private confirm() {
-    this.onSelect(this.options[this.selectedIndex].id);
+    const upg = this.options[this.selectedIndex];
+    trackEvent('upgrade_select', { upgrade_id: upg.id, upgrade_name: upg.name, floor: this.floor });
+    this.onSelect(upg.id);
     this.scene.stop();
   }
 

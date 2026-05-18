@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { version } from '../../package.json';
+import { trackEvent } from '../analytics';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -24,6 +26,7 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     this.generateTiles();
+    trackEvent('game_start', { version });
     this.scene.start('Game');
   }
 
