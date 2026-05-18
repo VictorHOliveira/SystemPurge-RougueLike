@@ -9,35 +9,35 @@ export interface Upgrade {
 
 export const ALL_UPGRADES: Upgrade[] = [
   // --- Stat upgrades (stackable) ---
-  { id: 'virus_scan', name: 'Virus Scan', description: 'ATK +2', category: 'stat', unique: false },
-  { id: 'patch_firewall', name: 'Patch Firewall', description: 'DEF +2', category: 'stat', unique: false },
-  { id: 'memory_expansion', name: 'Memory Expansion', description: 'Max HP +10, heal +10', category: 'stat', unique: false },
-  { id: 'kernel_optimization', name: 'Kernel Optimization', description: 'FOV radius +2', category: 'stat', unique: false },
-  { id: 'root_access', name: 'Root Access', description: 'ATK +1', category: 'stat', unique: false },
-  { id: 'disk_cleanup', name: 'Disk Cleanup', description: 'ATK +1, DEF +1', category: 'stat', unique: false },
-  { id: 'ram_overclock', name: 'RAM Overclock', description: 'Max HP +8, FOV +1', category: 'stat', unique: false },
-  { id: 'cache_boost', name: 'Cache Boost', description: 'ATK +3', category: 'stat', unique: false },
-  { id: 'memory_page', name: 'Memory Page', description: 'DEF +3', category: 'stat', unique: false },
-  { id: 'hyperthreading', name: 'HyperThreading', description: 'Max HP +15', category: 'stat', unique: false },
-  { id: 'data_bus', name: 'Data Bus', description: 'ATK +2, FOV +1', category: 'stat', unique: false },
+  { id: 'virus_scan', name: 'Varredura de Vírus', description: 'ATQ +2', category: 'stat', unique: false },
+  { id: 'patch_firewall', name: 'Firewall Reforçado', description: 'DEF +2', category: 'stat', unique: false },
+  { id: 'memory_expansion', name: 'Expansão de Memória', description: 'HP Máx +10, cura +10', category: 'stat', unique: false },
+  { id: 'kernel_optimization', name: 'Otimização do Kernel', description: 'Alcance de Visão +2', category: 'stat', unique: false },
+  { id: 'root_access', name: 'Acesso Root', description: 'ATQ +1', category: 'stat', unique: false },
+  { id: 'disk_cleanup', name: 'Limpeza de Disco', description: 'ATQ +1, DEF +1', category: 'stat', unique: false },
+  { id: 'ram_overclock', name: 'Overclock de RAM', description: 'HP Máx +8, Visão +1', category: 'stat', unique: false },
+  { id: 'cache_boost', name: 'Cache Acelerado', description: 'ATQ +3', category: 'stat', unique: false },
+  { id: 'memory_page', name: 'Página de Memória', description: 'DEF +3', category: 'stat', unique: false },
+  { id: 'hyperthreading', name: 'HyperThreading', description: 'HP Máx +15', category: 'stat', unique: false },
+  { id: 'data_bus', name: 'Barramento de Dados', description: 'ATQ +2, Visão +1', category: 'stat', unique: false },
 
   // --- Unique stat upgrades ---
-  { id: 'system_restore', name: 'System Restore', description: 'Fully restore HP', category: 'stat', unique: true },
-  { id: 'compression_algorithm', name: 'Compression Algorithm', description: 'Max HP +2 per level', category: 'stat', unique: true },
+  { id: 'system_restore', name: 'Restauração do Sistema', description: 'Recupera HP totalmente', category: 'stat', unique: true },
+  { id: 'compression_algorithm', name: 'Algoritmo de Compressão', description: 'HP Máx +2 por nível', category: 'stat', unique: true },
 
   // --- Speed Boost (stackable, max 3) ---
-  { id: 'speed_boost', name: 'Speed Boost', description: 'Move speed 2.0×/2.5×/3.0× (lv1/2/3)', category: 'stat', unique: false, maxLevel: 3 },
+  { id: 'speed_boost', name: 'Aumento de Velocidade', description: 'Velocidade 2.0×/2.5×/3.0× (nv1/2/3)', category: 'stat', unique: false, maxLevel: 3 },
 
   // --- Life Steal (stackable, max 3) ---
-  { id: 'life_steal', name: 'Life Steal', description: '50% chance: heal 2/4/8 HP per hit (lv1/2/3)', category: 'stat', unique: false, maxLevel: 3 },
+  { id: 'life_steal', name: 'Dreno de Vida', description: '50% chance: cura 2/4/8 HP por golpe (nv1/2/3)', category: 'stat', unique: false, maxLevel: 3 },
 
 
   // --- Passive upgrades (unique) ---
-  { id: 'registry_cleaner', name: 'Registry Cleaner', description: '15% chance to dodge attacks', category: 'passive', unique: true },
-  { id: 'network_shield', name: 'Network Shield', description: '15%/30%/50% chance to reflect damage (lv1/2/3)', category: 'passive', unique: false, maxLevel: 3 },
-  { id: 'cache_partition', name: 'Cache Partition', description: 'Regen 0.3 HP every 6 turns', category: 'passive', unique: true },
-  { id: 'boot_sector', name: 'Boot Sector Protection', description: 'Survive fatal hit with 1 HP (once)', category: 'passive', unique: true },
-  { id: 'encryption_layer', name: 'Encryption Layer', description: 'First hit per floor reduced by 3', category: 'passive', unique: true },
+  { id: 'registry_cleaner', name: 'Limpador de Registro', description: '15% de chance de desviar ataques', category: 'passive', unique: true },
+  { id: 'network_shield', name: 'Escudo de Rede', description: '15%/30%/50% de chance de refletir dano (nv1/2/3)', category: 'passive', unique: false, maxLevel: 3 },
+  { id: 'cache_partition', name: 'Cache Particionado', description: 'Regenera 0,3 HP a cada 6 turnos', category: 'passive', unique: true },
+  { id: 'boot_sector', name: 'Proteção do Setor de Boot', description: 'Sobrevive a golpe fatal com 1 HP (uma vez)', category: 'passive', unique: true },
+  { id: 'encryption_layer', name: 'Camada de Criptografia', description: 'Primeiro golpe por andar reduzido em 3', category: 'passive', unique: true },
 ];
 
 export function rollUpgrades(

@@ -7,7 +7,7 @@ import { PauseScene } from './scenes/PauseScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  width: 960,
+  width: 1024,
   height: 640,
   pixelArt: true,
   backgroundColor: '#000000',

@@ -28,7 +28,7 @@ export class UpgradeScene extends Phaser.Scene {
     overlay.fillStyle(0x000000, 0.75);
     overlay.fillRect(0, 0, 960, 640);
 
-    const title = this.mode === 'reveal' ? 'CHEST UPGRADE' : 'SYSTEM UPGRADE';
+    const title = this.mode === 'reveal' ? 'BAÚ DE MELHORIA' : 'MELHORIA DO SISTEMA';
     const titleColor = this.mode === 'reveal' ? '#ffd700' : '#00ff88';
     this.add.text(480, 100, title, {
       fontFamily: 'Consolas, "Courier New", monospace',
@@ -44,7 +44,7 @@ export class UpgradeScene extends Phaser.Scene {
     const startY = this.mode === 'reveal' ? 240 : 220;
     this.options.forEach((u, i) => this.drawCard(u, i, startY + i * 100));
 
-    const footerText = this.mode === 'reveal' ? 'ENTER to continue' : 'Arrows to navigate | ENTER to choose';
+    const footerText = this.mode === 'reveal' ? 'ENTER para continuar' : 'Setas para navegar | ENTER para escolher';
     this.add.text(480, 560, footerText, {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '14px',
@@ -119,7 +119,7 @@ export class UpgradeScene extends Phaser.Scene {
     });
 
     const curLevel = this.acquired.get(upgrade.id) ?? 0;
-    const lvlTag = curLevel > 0 ? `  lv${curLevel} \u2192 lv${curLevel + 1}` : '';
+    const lvlTag = curLevel > 0 ? `  nv${curLevel} \u2192 nv${curLevel + 1}` : '';
 
     this.add.text(cx - w / 2 + 78, y + 24, `${upgrade.name}${lvlTag}`, {
       fontFamily: 'Consolas, "Courier New", monospace',

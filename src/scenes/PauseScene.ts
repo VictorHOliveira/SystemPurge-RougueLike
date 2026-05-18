@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
   private buttons: { text: Phaser.GameObjects.Text; color: string; cb: () => void }[] = [];
+  private commandsGroup?: Phaser.GameObjects.Group;
+  private inSubmenu = false;
 
   constructor() {
     super('Pause');
@@ -11,6 +13,7 @@ export class PauseScene extends Phaser.Scene {
   create() {
     this.selectedIndex = 0;
     this.buttons = [];
+    this.inSubmenu = false;
 
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.65);
@@ -18,11 +21,11 @@ export class PauseScene extends Phaser.Scene {
 
     const panel = this.add.graphics();
     panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(280, 160, 400, 320, 6);
+    panel.fillRoundedRect(280, 140, 400, 360, 6);
     panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(280, 160, 400, 320, 6);
+    panel.strokeRoundedRect(280, 140, 400, 360, 6);
 
-    this.add.text(480, 200, 'PAUSED', {
+    this.add.text(480, 180, 'PAUSADO', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '32px',
       color: '#00ff88',
@@ -31,18 +34,19 @@ export class PauseScene extends Phaser.Scene {
 
     const divider = this.add.graphics();
     divider.lineStyle(1, 0x2a4a3a);
-    divider.lineBetween(340, 232, 620, 232);
+    divider.lineBetween(340, 212, 620, 212);
 
-    this.addButton(480, 295, '[ Resume ]', '#44ddbb', () => this.resumeGame());
-    this.addButton(480, 355, '[ Restart ]', '#ff6644', () => this.restartGame());
+    this.addButton(480, 260, '[ Continuar ]', '#44ddbb', () => this.resumeGame());
+    this.addButton(480, 310, '[ Comandos ]', '#44aaff', () => this.showCommands());
+    this.addButton(480, 360, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
 
-    this.add.text(480, 430, 'Arrows to navigate | ENTER to select', {
+    this.add.text(480, 420, 'Setas para navegar | ENTER para selecionar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
     }).setOrigin(0.5);
 
-    this.add.text(480, 450, 'ESC to resume', {
+    this.add.text(480, 440, 'ESC para continuar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
@@ -51,6 +55,10 @@ export class PauseScene extends Phaser.Scene {
     this.highlight(0);
 
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
+      if (this.inSubmenu) {
+        if (e.key === 'Escape') { this.hideCommands(); }
+        return;
+      }
       if (e.key === 'Escape') { this.resumeGame(); return; }
       if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         this.selectedIndex = (this.selectedIndex - 1 + this.buttons.length) % this.buttons.length;
@@ -64,6 +72,72 @@ export class PauseScene extends Phaser.Scene {
         this.buttons[this.selectedIndex].cb();
       }
     });
+  }
+
+  private showCommands() {
+    this.inSubmenu = true;
+    this.commandsGroup = this.add.group();
+    const g = this.commandsGroup;
+
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, 960, 640);
+    g.add(overlay);
+
+    const panel = this.add.graphics();
+    panel.fillStyle(0x0a1a18);
+    panel.fillRoundedRect(240, 100, 480, 440, 6);
+    panel.lineStyle(2, 0x2a4a3a);
+    panel.strokeRoundedRect(240, 100, 480, 440, 6);
+    g.add(panel);
+
+    const title = this.add.text(480, 130, 'COMANDOS', {
+      fontFamily: 'Consolas, "Courier New", monospace',
+      fontSize: '20px',
+      color: '#44aaff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    g.add(title);
+
+    const d = this.add.graphics();
+    d.lineStyle(1, 0x2a4a3a);
+    d.lineBetween(280, 152, 680, 152);
+    g.add(d);
+
+    const cmds = [
+      { key: '\u2190 \u2191 \u2193 \u2192', desc: 'Mover' },
+      { key: 'W  A  S  D', desc: 'Atirar projétil' },
+      { key: 'Space  /  .', desc: 'Aguardar um turno' },
+      { key: 'ESC', desc: 'Abrir menu de pausa' },
+      { key: 'R', desc: 'Reiniciar (quando morto)' },
+    ];
+
+    const style: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontFamily: 'Consolas, "Courier New", monospace',
+      fontSize: '14px',
+      color: '#8899aa',
+    };
+
+    cmds.forEach((cmd, i) => {
+      const y = 180 + i * 36;
+      const keyText = this.add.text(280, y, cmd.key, { ...style, color: '#44ddbb', fontStyle: 'bold' });
+      g.add(keyText);
+      const descText = this.add.text(440, y, cmd.desc, style);
+      g.add(descText);
+    });
+
+    const footer = this.add.text(480, 430, 'ESC para voltar', {
+      fontFamily: 'Consolas, "Courier New", monospace',
+      fontSize: '11px',
+      color: '#445566',
+    }).setOrigin(0.5);
+    g.add(footer);
+  }
+
+  private hideCommands() {
+    this.inSubmenu = false;
+    this.commandsGroup?.destroy(true);
+    this.commandsGroup = undefined;
   }
 
   private addButton(x: number, y: number, label: string, color: string, cb: () => void) {

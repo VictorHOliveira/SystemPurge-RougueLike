@@ -192,11 +192,10 @@ export class GameScene extends Phaser.Scene {
     if (this.player.floor > 1) {
       this.messageLog.add(`--- /system/dir_${this.player.floor} ---`);
       if (this.player.floor % 5 === 0) {
-        this.messageLog.add('*** WARNING: ROOTKIT DETECTED ***');
+        this.messageLog.add('*** ALERTA: ROOTKIT DETECTADO ***');
       }
     } else {
-      this.messageLog.add('SYSTEM PURGE v0.1 — Kernel initialized.');
-      this.messageLog.add('WASD/Arrows: move | Walk into enemies: attack');
+      this.messageLog.add('SYSTEM PURGE v0.1 — Kernel inicializado.');
     }
 
     this.isAnimating = false;
@@ -211,7 +210,7 @@ export class GameScene extends Phaser.Scene {
     if (opts.length > 0) {
       const upg = opts[0];
       this.player.applyUpgrade(upg.id);
-      this.messageLog.add(`Chest: ${upg.name} (${upg.description})`);
+      this.messageLog.add(`Baú: ${upg.name} (${upg.description})`);
       this.fov = new FOVSystem(this.player.effectiveFov);
 
       this.scene.pause();
@@ -224,7 +223,7 @@ export class GameScene extends Phaser.Scene {
         },
       });
     } else {
-      this.messageLog.add('Chest is empty.');
+      this.messageLog.add('Baú vazio.');
     }
   }
 
@@ -299,7 +298,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.map.tiles[ny][nx] === TileType.STAIRS_DOWN) {
       if (this.enemies.some(e => e.isAlive && e.textureKey === 'enemy_boss')) {
-        this.messageLog.add('*** ROOTKIT still active — eliminate it first ***');
+        this.messageLog.add('*** ROOTKIT ativo — elimine-o primeiro ***');
         this.player.x = nx - dx;
         this.player.y = ny - dy;
         this.endTurn();
@@ -307,7 +306,7 @@ export class GameScene extends Phaser.Scene {
       }
       this.player.x = nx;
       this.player.y = ny;
-      this.messageLog.add('Accessing next directory...');
+      this.messageLog.add('Acessando próximo diretório...');
       this.generateFloor();
       return;
     }
@@ -373,7 +372,7 @@ export class GameScene extends Phaser.Scene {
         if (target.enemy) {
           this.meleeAttack(this.player, target.enemy);
         } else {
-          this.messageLog.add('Projectile hit the wall.');
+          this.messageLog.add('Projétil acertou a parede.');
         }
         this.endTurn();
       },
@@ -388,7 +387,7 @@ export class GameScene extends Phaser.Scene {
     this.processAdjacentAttacks();
 
     if (!this.player.isAlive) {
-      this.messageLog.add('*** SYSTEM CRASHED — Press R to reboot ***');
+      this.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
       return;
     }
 
@@ -405,18 +404,18 @@ export class GameScene extends Phaser.Scene {
 
   private onEnemyDeath(enemy: Enemy): void {
     this.kills++;
-    this.messageLog.add(`${enemy.name} was neutralized.`);
+    this.messageLog.add(`${enemy.name} foi neutralizado.`);
 
     if (enemy.textureKey === 'enemy_boss' && this.bossRoomIdx !== -1) {
       const bx = enemy.x;
       const by = enemy.y;
       this.chests.set(`${bx},${by}`, false);
-      this.messageLog.add('A treasure chest materializes!');
+      this.messageLog.add('Um baú de tesouro aparece!');
     }
 
     const leveled = this.player.addXp(enemy.xpValue);
     if (leveled) {
-      this.messageLog.add(`*** SYSTEM UPGRADE to v${this.player.level} ***`);
+      this.messageLog.add(`*** SISTEMA ATUALIZADO para v${this.player.level} ***`);
       this.showUpgradeChoices();
     }
   }
@@ -425,7 +424,7 @@ export class GameScene extends Phaser.Scene {
     const isPlayerDef = defender === this.player;
 
     if (isPlayerDef && this.player.hasDodge && Math.random() < 0.15) {
-      this.messageLog.add(`Registry Cleaner deflected ${attacker.name}.`);
+      this.messageLog.add(`Limpador de Registro desviou de ${attacker.name}.`);
       return;
     }
 
@@ -434,24 +433,24 @@ export class GameScene extends Phaser.Scene {
     if (isPlayerDef && this.player.hasEncryption) {
       dmg = Math.max(1, dmg - 3);
       this.player.encryptionLayerUsed = true;
-      this.messageLog.add('Encryption Layer reduced damage by 3.');
+      this.messageLog.add('Camada de Criptografia reduziu dano em 3.');
     }
 
     const dealt = defender.takeDamage(dmg);
-    this.messageLog.add(`${attacker.name} hits ${defender.name} for ${dealt} dmg.`);
+    this.messageLog.add(`${attacker.name} acerta ${defender.name} com ${dealt} de dano.`);
 
     if (!isPlayerDef && dealt > 0) {
       const ls = this.player.lifeStealAmount;
       if (ls > 0 && Math.random() < 0.5) {
         this.player.heal(ls);
-        this.messageLog.add(`Life Steal restored ${ls} HP.`);
+        this.messageLog.add(`Dreno de Vida restaurou ${ls} HP.`);
       }
     }
 
     const rc = this.player.reflectChance;
     if (isPlayerDef && rc > 0 && dealt > 0 && Math.random() < rc) {
       const rdmg = attacker.takeDamage(2);
-      if (rdmg > 0) this.messageLog.add(`Network Shield reflected ${rdmg} damage (${Math.round(rc * 100)}% chance).`);
+      if (rdmg > 0) this.messageLog.add(`Escudo de Rede refletiu ${rdmg} de dano (${Math.round(rc * 100)}% de chance).`);
       if (!attacker.isAlive && attacker instanceof Enemy) {
         this.onEnemyDeath(attacker);
       }
@@ -460,7 +459,7 @@ export class GameScene extends Phaser.Scene {
     if (isPlayerDef && !defender.isAlive && this.player.hasFatalGuard) {
       defender.hp = 1;
       this.player.fatalGuardUsed = true;
-      this.messageLog.add('Boot Sector Protection! Survived with 1 HP.');
+      this.messageLog.add('Proteção do Setor de Boot! Sobreviveu com 1 HP.');
     }
 
     if (!defender.isAlive && defender instanceof Enemy) {
@@ -533,10 +532,10 @@ export class GameScene extends Phaser.Scene {
       if (this.isAdjacent(this.player.x, this.player.y, enemy.x, enemy.y)) {
         this.meleeAttack(enemy, this.player);
         if (!this.player.isAlive) {
-          this.messageLog.add('*** SYSTEM CRASHED — Press R to reboot ***');
+      this.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
           return;
-        }
-      }
+    }
+    }
     }
   }
 

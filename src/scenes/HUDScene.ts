@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import { version } from '../../package.json';
 
 const HUD_X = 648;
-const BAR_W = 294;
+const BAR_W = 358;
 const CENTER = HUD_X + BAR_W / 2;
-const RIGHT = 942;
+const RIGHT = 1006;
+const MAX_LOG_CHARS = 46;
 
 export class HUDScene extends Phaser.Scene {
   private hpBarBg!: Phaser.GameObjects.Graphics;
@@ -27,7 +28,7 @@ export class HUDScene extends Phaser.Scene {
   create() {
     const panel = this.add.graphics();
     panel.fillStyle(0x0a0a18);
-    panel.fillRect(640, 0, 320, 640);
+    panel.fillRect(640, 0, 384, 640);
 
     const vert = this.add.graphics();
     vert.lineStyle(1, 0x1a2a3a);
@@ -121,7 +122,7 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private buildUpgrades() {
-    this.add.text(HUD_X, 166, 'UPGRADES', {
+    this.add.text(HUD_X, 166, 'MELHORIAS', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
@@ -138,7 +139,7 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private buildLog() {
-    this.add.text(HUD_X, 428, '\u203a SYSTEM LOG', {
+    this.add.text(HUD_X, 428, '\u203a LOG DO SISTEMA', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
@@ -146,9 +147,9 @@ export class HUDScene extends Phaser.Scene {
 
     this.logBg = this.add.graphics();
     this.logBg.fillStyle(0x040810);
-    this.logBg.fillRoundedRect(644, 444, 302, 170, 3);
+    this.logBg.fillRoundedRect(644, 444, 366, 170, 3);
     this.logBg.lineStyle(1, 0x152030);
-    this.logBg.strokeRoundedRect(644, 444, 302, 170, 3);
+    this.logBg.strokeRoundedRect(644, 444, 366, 170, 3);
 
     for (let i = 0; i < 10; i++) {
       const t = this.add.text(HUD_X + 6, 452 + i * 16, '', {
@@ -175,40 +176,40 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private messageColor(msg: string): string {
-    if (msg.includes('***') || msg.includes('UPGRADE')) return '#ffdd44';
-    if (msg.includes('CRASHED')) return '#ff4444';
-    if (msg.includes('hits') && msg.includes('dmg')) return '#ff9977';
-    if (msg.includes('neutralized')) return '#ff6655';
-    if (msg.includes('---') || msg.includes('Accessing') || msg.includes('SYSTEM PURGE') || msg.includes('Kernel')) return '#44ddbb';
+    if (msg.includes('***') || msg.includes('ATUALIZADO')) return '#ffdd44';
+    if (msg.includes('FALHOU')) return '#ff4444';
+    if (msg.includes('acerta') && msg.includes('dano')) return '#ff9977';
+    if (msg.includes('neutralizado')) return '#ff6655';
+    if (msg.includes('---') || msg.includes('Acessando') || msg.includes('SYSTEM PURGE') || msg.includes('Kernel')) return '#44ddbb';
     return '#8899aa';
   }
 
   private formatUpgrades(upgrades: Map<string, number>): string {
     const names: Record<string, string> = {
-      virus_scan: 'Virus Scan',
-      patch_firewall: 'Patch Firewall',
-      memory_expansion: 'Memory Expansion',
-      kernel_optimization: 'Kernel Optimization',
-      root_access: 'Root Access',
-      disk_cleanup: 'Disk Cleanup',
-      ram_overclock: 'RAM Overclock',
-      cache_boost: 'Cache Boost',
-      memory_page: 'Memory Page',
+      virus_scan: 'Varredura de Vírus',
+      patch_firewall: 'Firewall Reforçado',
+      memory_expansion: 'Expansão de Memória',
+      kernel_optimization: 'Otimização do Kernel',
+      root_access: 'Acesso Root',
+      disk_cleanup: 'Limpeza de Disco',
+      ram_overclock: 'Overclock de RAM',
+      cache_boost: 'Cache Acelerado',
+      memory_page: 'Página de Memória',
       hyperthreading: 'HyperThreading',
-      data_bus: 'Data Bus',
-      system_restore: 'System Restore',
-      compression_algorithm: 'Compression Algorithm',
-      life_steal: 'Life Steal',
-      registry_cleaner: 'Registry Cleaner',
-      network_shield: 'Network Shield',
-      cache_partition: 'Cache Partition',
-      boot_sector: 'Boot Sector Protection',
-      encryption_layer: 'Encryption Layer',
+      data_bus: 'Barramento de Dados',
+      system_restore: 'Restauração do Sistema',
+      compression_algorithm: 'Algoritmo de Compressão',
+      life_steal: 'Dreno de Vida',
+      registry_cleaner: 'Limpador de Registro',
+      network_shield: 'Escudo de Rede',
+      cache_partition: 'Cache Particionado',
+      boot_sector: 'Proteção do Setor de Boot',
+      encryption_layer: 'Camada de Criptografia',
     };
     const lines: string[] = [];
     for (const [id, lvl] of upgrades) {
       const n = names[id] ?? id;
-      lines.push(`  \u25b8 ${n}  lv${lvl}`);
+      lines.push(`  \u25b8 ${n}  nv${lvl}`);
     }
     return lines.join('\n');
   }
@@ -228,7 +229,7 @@ export class HUDScene extends Phaser.Scene {
     const upgrades = (this.registry.get('upgrades') as Map<string, number>) ?? new Map();
 
     this.headerText.setText(name);
-    this.subtitleText.setText(`LV ${level}  \u2502  DIR: /system/${floor}`);
+    this.subtitleText.setText(`NV ${level}  \u2502  DIR: /system/${floor}`);
 
     const hpPct = Math.max(0, Math.min(1, hp / maxHp));
     const barColor = hpPct > 0.6 ? 0x00ff88 : hpPct > 0.3 ? 0xffcc00 : 0xff4444;
@@ -248,7 +249,7 @@ export class HUDScene extends Phaser.Scene {
     }
     this.xpText.setText(`${xp}/${xpN}`);
 
-    this.statsText.setText(`ATK  ${atk}    DEF  ${def}    KILLS  ${kills}`);
+    this.statsText.setText(`ATQ  ${atk}    DEF  ${def}    ABATES  ${kills}`);
 
     this.upgradesText.setText(this.formatUpgrades(upgrades));
 
@@ -259,7 +260,8 @@ export class HUDScene extends Phaser.Scene {
       const msgIdx = i - offset;
       if (msgIdx >= 0) {
         const msg = msgs[msgIdx];
-        this.messageTexts[i].setText(msg);
+        const truncated = msg.length > MAX_LOG_CHARS ? msg.slice(0, MAX_LOG_CHARS - 3) + '...' : msg;
+        this.messageTexts[i].setText(truncated);
         this.messageTexts[i].setColor(this.messageColor(msg));
         const alpha = total > 1 ? 0.55 + 0.45 * ((i - offset) / (total - 1)) : 1;
         this.messageTexts[i].setAlpha(alpha);
