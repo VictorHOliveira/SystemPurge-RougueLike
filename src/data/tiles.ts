@@ -3,6 +3,8 @@ export enum TileType {
   FLOOR = 1,
   STAIRS_DOWN = 2,
   STAIRS_UP = 3,
+  TRAP = 4,
+  ALTAR = 5,
 }
 
 export function tileName(type: TileType): string {
@@ -11,13 +13,15 @@ export function tileName(type: TileType): string {
     case TileType.FLOOR: return 'floor';
     case TileType.STAIRS_DOWN: return 'stairs';
     case TileType.STAIRS_UP: return 'stairs_up';
+    case TileType.TRAP: return 'trap';
+    case TileType.ALTAR: return 'altar';
   }
 }
 
 export function tileIsWalkable(type: TileType): boolean {
-  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP;
+  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP || type === TileType.TRAP || type === TileType.ALTAR;
 }
 
 export function tileIsTransparent(type: TileType): boolean {
-  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP;
+  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP || type === TileType.TRAP || type === TileType.ALTAR;
 }

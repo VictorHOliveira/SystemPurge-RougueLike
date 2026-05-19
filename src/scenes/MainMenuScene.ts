@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
+import { sound } from '../audio/SoundManager';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -95,23 +96,31 @@ export class MainMenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.highlight(0);
+    sound.resumeContext();
     this.input.keyboard!.on('keydown', this.handleInput, this);
+    this.events.on('shutdown', () => {
+      this.input.keyboard?.off('keydown', this.handleInput, this);
+    });
   }
 
   private handleInput(e: KeyboardEvent) {
+    sound.resumeContext();
     if (this.inSubmenu) {
-      if (e.key === 'Escape') { this.hideSubmenu(); }
+      if (e.key === 'Escape') { this.hideSubmenu(); return; }
       return;
     }
     if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
       this.selectedIndex = (this.selectedIndex - 1 + this.buttons.length) % this.buttons.length;
       this.highlight(this.selectedIndex);
+      sound.select();
     }
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
       this.selectedIndex = (this.selectedIndex + 1) % this.buttons.length;
       this.highlight(this.selectedIndex);
+      sound.select();
     }
     if (e.key === 'Enter') {
+      sound.confirm();
       this.buttons[this.selectedIndex].cb();
     }
   }
@@ -150,6 +159,8 @@ export class MainMenuScene extends Phaser.Scene {
     const cmds = [
       { key: '\u2190 \u2191 \u2193 \u2192', desc: 'Mover personagem' },
       { key: 'W  A  S  D', desc: 'Atirar projetil' },
+      { key: 'Q', desc: 'Habilidade especial (classe)' },
+      { key: 'E', desc: '2a habilidade (Daemon)' },
       { key: 'Espaco  /  .', desc: 'Aguardar um turno' },
       { key: 'ESC', desc: 'Abrir menu de pausa' },
       { key: 'R', desc: 'Reiniciar (quando morto)' },
@@ -264,6 +275,6 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private startGame() {
-    this.scene.start('Game');
+    this.scene.start('ClassSelect');
   }
 }

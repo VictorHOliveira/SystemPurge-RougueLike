@@ -43,6 +43,15 @@ export const BOSS_TEMPLATE: EnemyTemplate = {
   textureKey: 'enemy_boss',
 };
 
+export const MINIBOSS_TEMPLATE: EnemyTemplate = {
+  name: 'admin.exe',
+  hp: 18,
+  attack: 5,
+  defense: 2,
+  color: 0xff44aa,
+  textureKey: 'enemy_miniboss',
+};
+
 export function randomEnemyTemplate(): EnemyTemplate {
   return ENEMY_TEMPLATES[Math.floor(Math.random() * ENEMY_TEMPLATES.length)];
 }

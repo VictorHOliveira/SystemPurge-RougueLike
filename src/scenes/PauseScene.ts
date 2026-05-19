@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { sound } from '../audio/SoundManager';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -55,24 +56,32 @@ export class PauseScene extends Phaser.Scene {
 
     this.highlight(0);
 
-    this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
-      if (this.inSubmenu) {
-        if (e.key === 'Escape') { this.hideCommands(); }
-        return;
-      }
-      if (e.key === 'Escape') { this.resumeGame(); return; }
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-        this.selectedIndex = (this.selectedIndex - 1 + this.buttons.length) % this.buttons.length;
-        this.highlight(this.selectedIndex);
-      }
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        this.selectedIndex = (this.selectedIndex + 1) % this.buttons.length;
-        this.highlight(this.selectedIndex);
-      }
-      if (e.key === 'Enter') {
-        this.buttons[this.selectedIndex].cb();
-      }
+    this.input.keyboard!.on('keydown', this.handleKey, this);
+    this.events.on('shutdown', () => {
+      this.input.keyboard?.off('keydown', this.handleKey, this);
     });
+  }
+
+  private handleKey(e: KeyboardEvent) {
+    if (this.inSubmenu) {
+      if (e.key === 'Escape') { this.hideCommands(); sound.select(); }
+      return;
+    }
+    if (e.key === 'Escape') { this.resumeGame(); return; }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      this.selectedIndex = (this.selectedIndex - 1 + this.buttons.length) % this.buttons.length;
+      this.highlight(this.selectedIndex);
+      sound.select();
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+      this.selectedIndex = (this.selectedIndex + 1) % this.buttons.length;
+      this.highlight(this.selectedIndex);
+      sound.select();
+    }
+    if (e.key === 'Enter') {
+      sound.confirm();
+      this.buttons[this.selectedIndex].cb();
+    }
   }
 
   private showCommands() {
@@ -107,9 +116,12 @@ export class PauseScene extends Phaser.Scene {
 
     const cmds = [
       { key: '\u2190 \u2191 \u2193 \u2192', desc: 'Mover' },
-      { key: 'W  A  S  D', desc: 'Atirar projétil' },
+      { key: 'W  A  S  D', desc: 'Atirar proj\u00e9til (se classe permite)' },
+      { key: 'Q', desc: 'Habilidade especial da classe' },
+      { key: 'E', desc: '2\u00aa habilidade (Daemon)' },
+      { key: '1  /  2  /  3', desc: 'Usar item do invent\u00e1rio' },
       { key: 'Space  /  .', desc: 'Aguardar um turno' },
-      { key: 'ESC', desc: 'Abrir menu de pausa' },
+      { key: 'ESC', desc: 'Menu de pausa' },
       { key: 'R', desc: 'Reiniciar (quando morto)' },
     ];
 
@@ -120,14 +132,14 @@ export class PauseScene extends Phaser.Scene {
     };
 
     cmds.forEach((cmd, i) => {
-      const y = 180 + i * 36;
+      const y = 180 + i * 30;
       const keyText = this.add.text(280, y, cmd.key, { ...style, color: '#44ddbb', fontStyle: 'bold' });
       g.add(keyText);
       const descText = this.add.text(440, y, cmd.desc, style);
       g.add(descText);
     });
 
-    const footer = this.add.text(480, 430, 'ESC para voltar', {
+    const footer = this.add.text(480, 440, 'ESC para voltar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',

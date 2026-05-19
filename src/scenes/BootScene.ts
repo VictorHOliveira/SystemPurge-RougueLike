@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { trackEvent } from '../analytics';
+import { sound } from '../audio/SoundManager';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -22,10 +23,20 @@ export class BootScene extends Phaser.Scene {
     this.load.image('enemy_spyware', 'sprites/entities/enemy_spyware.png');
     this.load.image('enemy_boss', 'sprites/entities/enemy_boss.png');
     this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
+    this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
+    this.load.image('class_limpador', 'sprites/classes/class_limpador.png');
+    this.load.image('class_ping', 'sprites/classes/class_ping.png');
+    this.load.image('class_muralha', 'sprites/classes/class_muralha.png');
+    this.load.image('class_daemon', 'sprites/classes/class_daemon.png');
   }
 
   create() {
     this.generateTiles();
+    this.generateParticleTexture();
+    this.generateProjectileTextures();
+    this.generateEnemySprites();
+    this.generateSpecialTileTextures();
+    sound.init();
     trackEvent('game_start', { version });
     this.scene.start('MainMenu');
   }
@@ -51,6 +62,78 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture(key, 32, 32);
     g.destroy();
   }
+
+  private generateParticleTexture() {
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff);
+    g.fillCircle(2, 2, 2);
+    g.generateTexture('particle', 4, 4);
+    g.destroy();
+  }
+
+  private generateProjectileTextures() {
+    const g = this.add.graphics();
+    g.fillStyle(0x4488ff);
+    g.fillCircle(6, 6, 6);
+    g.fillStyle(0xaaddff, 0.5);
+    g.fillCircle(6, 6, 3);
+    g.generateTexture('projectile_daemon', 12, 12);
+    g.destroy();
+  }
+
+  private generateEnemySprites() {
+    const g = this.add.graphics();
+    g.fillStyle(0xff44aa);
+    g.fillRect(4, 8, 24, 18);
+    g.fillStyle(0xcc2266);
+    g.fillRect(2, 4, 28, 6);
+    g.lineStyle(1, 0x000000, 0.3);
+    g.strokeRect(4, 8, 24, 18);
+    g.strokeRect(2, 4, 28, 6);
+    g.generateTexture('enemy_miniboss', 32, 32);
+    g.destroy();
+  }
+
+  private generateSpecialTileTextures() {
+    const g = this.add.graphics();
+
+    g.fillStyle(0x882222);
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle(0xcc4444);
+    g.fillTriangle(16, 4, 6, 26, 26, 26);
+    g.lineStyle(1, 0xaa3333);
+    g.strokeRect(0, 0, 32, 32);
+    g.generateTexture('tile_trap', 32, 32);
+    g.clear();
+
+    g.fillStyle(0x6622aa);
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle(0xffd700);
+    g.fillCircle(16, 16, 8);
+    g.fillStyle(0x6622aa);
+    g.fillCircle(16, 16, 4);
+    g.lineStyle(1, 0x8833cc);
+    g.strokeRect(0, 0, 32, 32);
+    g.generateTexture('tile_altar', 32, 32);
+    g.clear();
+    g.fillStyle(0x441177);
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle(0xccaaff);
+    g.fillCircle(16, 16, 6);
+    g.lineStyle(1, 0x6622aa);
+    g.strokeRect(0, 0, 32, 32);
+    g.generateTexture('tile_altar_dim', 32, 32);
+    g.clear();
+    g.fillStyle(0x551111);
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle(0x883333);
+    g.fillTriangle(16, 6, 8, 24, 24, 24);
+    g.lineStyle(1, 0x661111);
+    g.strokeRect(0, 0, 32, 32);
+    g.generateTexture('tile_trap_dim', 32, 32);
+    g.destroy();
+  }
+
 
   private chestOpenedTile(key: string, body: number, interior: number, lid: number) {
     const g = this.add.graphics();
