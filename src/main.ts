@@ -17,7 +17,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, MainMenuScene, ClassSelectScene, GameScene, HUDScene, UpgradeScene, PauseScene],
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoCenter: Phaser.Scale.CENTER_VERTICALLY,
   },
 };
 

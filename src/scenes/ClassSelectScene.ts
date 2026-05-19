@@ -20,7 +20,7 @@ export class ClassSelectScene extends Phaser.Scene {
     bg.fillStyle(0x000810);
     bg.fillRect(0, 0, 1024, 640);
 
-    this.add.text(512, 40, 'SELECIONE SUA CLASSE', {
+    this.add.text(477, 40, 'SELECIONE SUA CLASSE', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '26px',
       color: '#00ff88',
@@ -29,12 +29,12 @@ export class ClassSelectScene extends Phaser.Scene {
 
     const div = this.add.graphics();
     div.lineStyle(1, 0x1a3a2a);
-    div.lineBetween(200, 70, 824, 70);
+    div.lineBetween(165, 70, 789, 70);
 
     CLASSES.forEach((c, i) => this.drawCard(i, c));
     this.updateCardHighlights();
 
-    this.add.text(512, 600, '\u2190 \u2192 Navegar | ENTER para selecionar | ESC voltar', {
+    this.add.text(477, 600, '\u2190 \u2192 Navegar | ENTER para selecionar | ESC voltar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '13px',
       color: '#445566',
@@ -68,7 +68,7 @@ export class ClassSelectScene extends Phaser.Scene {
   }
 
   private drawCard(index: number, c: typeof CLASSES[0]) {
-    const cx = 128 + index * 220;
+    const cx = 93 + index * 220;
     const y = 110;
     const w = 200;
     const h = 440;
@@ -148,7 +148,7 @@ export class ClassSelectScene extends Phaser.Scene {
 
   private updateCardHighlights() {
     for (let i = 0; i < CLASSES.length; i++) {
-      const cx = 128 + i * 220;
+      const cx = 93 + i * 220;
       const y = 110;
       const g = this.cardGraphics[i];
       if (!g) continue;
