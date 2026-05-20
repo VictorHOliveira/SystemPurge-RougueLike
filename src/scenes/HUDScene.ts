@@ -110,6 +110,8 @@ export class HUDScene extends Phaser.Scene {
   private messageTexts: Phaser.GameObjects.Text[] = [];
   private footerText!: Phaser.GameObjects.Text;
 
+  private lastHudVersion = -1;
+
   constructor() {
     super('HUD');
   }
@@ -283,6 +285,10 @@ export class HUDScene extends Phaser.Scene {
   }
 
   update() {
+    const hudVer = (this.registry.get('_hud') as number) ?? 0;
+    if (hudVer === this.lastHudVersion) return;
+    this.lastHudVersion = hudVer;
+
     const hp = (this.registry.get('hp') as number) ?? 0;
     const maxHp = (this.registry.get('maxHp') as number) ?? 1;
     const level = (this.registry.get('level') as number) ?? 1;

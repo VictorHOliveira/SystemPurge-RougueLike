@@ -11,6 +11,7 @@ export class RenderSystem {
   miniMap!: Phaser.GameObjects.Graphics;
   entitySprites = new Map<string, Phaser.GameObjects.Image>();
   enemyHpBars = new Map<string, Phaser.GameObjects.Graphics>();
+  private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(scene: Phaser.Scene, state: GameState) {
     this.scene = scene;
@@ -29,6 +30,14 @@ export class RenderSystem {
     const playerSpr = this.scene.add.image(0, 0, playerTextureKey);
     playerSpr.setOrigin(0.5, 0.5).setDepth(10);
     this.entitySprites.set('player', playerSpr);
+
+    this.particleEmitter = this.scene.add.particles(0, 0, 'particle', {
+      speed: { min: 40, max: 120 },
+      lifespan: 350,
+      scale: { start: 0.8, end: 0 },
+      emitting: false,
+    });
+    this.particleEmitter.setDepth(20);
   }
 
   createEnemySprites() {
@@ -46,6 +55,7 @@ export class RenderSystem {
     this.enemyHpBars.clear();
     if (this.tileRT) this.tileRT.destroy();
     if (this.miniMap) this.miniMap.destroy();
+    if (this.particleEmitter) this.particleEmitter.destroy();
   }
 
   redrawMap() {
@@ -157,18 +167,12 @@ export class RenderSystem {
   }
 
   spawnParticles(x: number, y: number, tint: number, count: number = 6) {
+    if (!this.particleEmitter) return;
     const px = x * TILE + TILE / 2;
     const py = y * TILE + TILE / 2;
-    const emitter = this.scene.add.particles(px, py, 'particle', {
-      speed: { min: 40, max: 120 },
-      lifespan: 350,
-      scale: { start: 0.8, end: 0 },
-      tint,
-      emitting: false,
-    });
-    emitter.setDepth(20);
-    emitter.explode(count);
-    this.scene.time.delayedCall(500, () => emitter.destroy());
+    this.particleEmitter.setPosition(px, py);
+    this.particleEmitter.setParticleTint(tint);
+    this.particleEmitter.explode(count);
   }
 
   private drawMiniMap() {

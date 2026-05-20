@@ -332,12 +332,25 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.redrawMap();
     this.renderSystem.syncEntitySprites();
     this.renderSystem.centerOnPlayer();
+
+    this.registry.set('_hud', (this.registry.get('_hud') as number ?? 0) + 1);
   }
 
   private processEnemyAI() {
     if (!this.state.player.isAlive) return;
 
     this.combatSystem.processEnemyBleeds();
+
+    const occGrid: boolean[][] = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+    for (const e of this.state.enemies) {
+      if (e.isAlive) occGrid[e.y][e.x] = true;
+    }
+    for (const [key, opened] of this.state.chests) {
+      if (!opened) {
+        const [cx, cy] = key.split(',').map(Number);
+        occGrid[cy][cx] = true;
+      }
+    }
 
     for (const enemy of this.state.enemies) {
       if (!enemy.isAlive) continue;
@@ -353,9 +366,7 @@ export class GameScene extends Phaser.Scene {
         (x, y) => this.state.map.isWalkable(x, y),
         (x, y) => {
           if (this.state.player.x === x && this.state.player.y === y && this.state.player.isAlive) return true;
-          if (this.state.enemies.some(e => e !== enemy && e.isAlive && e.x === x && e.y === y)) return true;
-          const ck = `${x},${y}`;
-          if (this.state.chests.has(ck) && !this.state.chests.get(ck)) return true;
+          if (occGrid[y]?.[x]) return true;
           return false;
         },
       );
