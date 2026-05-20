@@ -115,6 +115,10 @@ export class HUDScene extends Phaser.Scene {
   }
 
   create() {
+    this.abilTexts = [];
+    this.invTexts = [];
+    this.statTexts = [];
+    this.messageTexts = [];
     const bg = this.add.graphics();
     bg.fillStyle(0x0a0a18);
     bg.fillRect(640, 0, 384, 640);
