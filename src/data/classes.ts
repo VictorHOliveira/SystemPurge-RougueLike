@@ -144,11 +144,11 @@ export const CLASSES: PlayerClass[] = [
       {
         id: 'overflow',
         name: 'Overflow de Pilha',
-        description: '8 de dano em área + sangra 2 por 3 turnos',
+        description: '8 de dano em área + sangra 2 por 6 turnos',
         cooldown: 5,
         type: 'aoe_damage',
         damage: 8,
-        duration: 3,
+        duration: 6,
       },
       {
         id: 'vazamento',
