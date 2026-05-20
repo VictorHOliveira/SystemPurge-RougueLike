@@ -173,6 +173,9 @@ export class ActionSystem {
           messageLog.add(`${e.name} atingido por ${dmg}.`);
           this.callbacks.spawnParticles(e.x, e.y, 0xff44aa, 4);
           sound.play('enemy_hit');
+          if (ability.duration && ability.duration > 0) {
+            enemyBleeds.set(e.id, { ticks: ability.duration, damage: 2 + player.extraBleedDamage });
+          }
           if (!e.isAlive) this.callbacks.onEnemyDeath(e);
         }
         messageLog.add(`Overflow: ${hitCount} inimigo(s) atingido(s), ${totalDmg} de dano total.`);
@@ -214,8 +217,7 @@ export class ActionSystem {
         }
         if (target) {
           const dmg = target.takeDamage(ability.damage ?? 10);
-          enemyBleeds.set(target.id, { ticks: ability.duration ?? 3, damage: 2 + player.extraBleedDamage });
-          messageLog.add(`Vazamento: ${dmg} de dano + sangra 2 por ${ability.duration} turnos.`);
+          messageLog.add(`Vazamento: ${dmg} de dano.`);
           this.callbacks.spawnParticles(target.x, target.y, 0x66ff66, 4);
           sound.play('enemy_hit');
           if (!target.isAlive) this.callbacks.onEnemyDeath(target);
