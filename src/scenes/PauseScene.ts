@@ -189,6 +189,7 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private goToMainMenu() {
+    this.registry.set('restartPending', false);
     this.scene.stop('HUD');
     this.scene.stop('Game');
     this.scene.stop();

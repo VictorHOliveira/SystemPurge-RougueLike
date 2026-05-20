@@ -4,6 +4,8 @@ import { EnemyTemplate } from '../data/enemies';
 let nextId = 1;
 
 export class Enemy extends Entity {
+  static resetId() { nextId = 1; }
+
   xpValue: number;
 
   constructor(template: EnemyTemplate, x: number, y: number) {

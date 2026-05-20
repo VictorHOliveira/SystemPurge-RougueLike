@@ -91,10 +91,10 @@ export class GameScene extends Phaser.Scene {
     });
     this.floorGenerator = new FloorGenerator(this, this.state);
 
-    this.generateFloor();
-
     this.cameras.main.setViewport(0, 0, 640, 640);
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
+
+    this.generateFloor();
 
     const arrows = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT') as {
       UP: Phaser.Input.Keyboard.Key;
@@ -110,6 +110,7 @@ export class GameScene extends Phaser.Scene {
     window.addEventListener('keydown', this.globalRestart);
     this.events.on('resume', this.onResume, this);
     this.events.on('shutdown', () => {
+      this.renderSystem?.destroyAll();
       this.input?.keyboard?.off('keydown', this.handleInput, this);
       window.removeEventListener('keydown', this.globalRestart);
       this.events.off('resume', this.onResume, this);

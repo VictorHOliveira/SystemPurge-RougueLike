@@ -22,6 +22,7 @@ export class FloorGenerator {
   }
 
   generateFloor(forceNewPlayer: boolean = false) {
+    Enemy.resetId();
     const result = MapGen.generate(MAP_W, MAP_H);
     this.state.map = result.map;
 
