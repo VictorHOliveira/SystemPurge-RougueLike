@@ -83,12 +83,10 @@ export class FloorGenerator {
     for (let i = 1; i < result.rooms.length; i++) {
       const r = result.rooms[i];
       if (r.cx === this.state.player.x && r.cy === this.state.player.y) continue;
-      if (i === chestRoomIdx) continue;
-      if (i === this.state.altarRoomIdx) {
+      if (this.state.altarRoomIdx !== -1 && i === this.state.altarRoomIdx) {
         this.state.map.setTile(r.cx, r.cy, TileType.ALTAR);
-        continue;
       }
-      if (i === this.state.trapRoomIdx) {
+      if (this.state.trapRoomIdx !== -1 && i === this.state.trapRoomIdx) {
         const trapCount = Phaser.Math.Between(3, 5);
         for (let t = 0; t < trapCount; t++) {
           for (let attempt = 0; attempt < 10; attempt++) {
@@ -100,7 +98,6 @@ export class FloorGenerator {
             }
           }
         }
-        continue;
       }
 
       const isBossRoom = i === this.state.bossRoomIdx;
