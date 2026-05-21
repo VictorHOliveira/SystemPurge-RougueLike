@@ -14,6 +14,10 @@ export class FOVSystem {
     );
   }
 
+  setRadius(radius: number): void {
+    this.radius = radius;
+  }
+
   compute(map: GameMap, ox: number, oy: number): void {
     this.lightPasses = (x: number, y: number) => map.isTransparent(x, y);
 

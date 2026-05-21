@@ -41,7 +41,11 @@ export class FloorGenerator {
       this.state.map.setTile(result.rooms[0].cx, result.rooms[0].cy, TileType.STAIRS_UP);
     }
 
-    this.state.fov = new FOVSystem(this.state.player.effectiveFov);
+    if (this.state.fov) {
+      this.state.fov.setRadius(this.state.player.effectiveFov);
+    } else {
+      this.state.fov = new FOVSystem(this.state.player.effectiveFov);
+    }
     this.state.turnSystem = new TurnSystem();
     this.state.messageLog = new MessageLog();
 
@@ -49,6 +53,7 @@ export class FloorGenerator {
     this.state.chests.clear();
     this.state.altarUsed = false;
     const floorMult = 1 + (this.state.player.floor - 1) * 0.075;
+    const occupiedPositions = new Set<string>();
 
     const isBossFloor = this.state.player.floor % 10 === 0;
     const isMinibossFloor = !isBossFloor && this.state.player.floor % 3 === 0;
@@ -112,13 +117,14 @@ export class FloorGenerator {
           for (let attempt = 0; attempt < 10; attempt++) {
             const tx = r.x + 1 + Math.floor(Math.random() * Math.max(1, r.w - 2));
             const ty = r.y + 1 + Math.floor(Math.random() * Math.max(1, r.h - 2));
-            if (!this.state.enemies.some(en => en.x === tx && en.y === ty)) {
+            if (!occupiedPositions.has(`${tx},${ty}`)) {
               ex = tx;
               ey = ty;
               break;
             }
           }
         }
+        occupiedPositions.add(`${ex},${ey}`);
 
         if (isBossRoom) {
           const scaled = {

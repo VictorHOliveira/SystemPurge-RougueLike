@@ -68,8 +68,11 @@ export class Enemy extends Entity {
     const dirs: [number, number][] = [
       [0, -1], [0, 1], [-1, 0], [1, 0],
     ];
-    const shuffled = dirs.sort(() => Math.random() - 0.5);
-    for (const [dx, dy] of shuffled) {
+    for (let i = dirs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    }
+    for (const [dx, dy] of dirs) {
       const nx = this.x + dx;
       const ny = this.y + dy;
       if (isWalkable(nx, ny) && !isOccupied(nx, ny)) {

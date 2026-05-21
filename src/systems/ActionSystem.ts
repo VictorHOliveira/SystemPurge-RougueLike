@@ -276,7 +276,7 @@ export class ActionSystem {
           player.applyUpgrade(id);
           const upg = ALL_UPGRADES.find(u => u.id === id);
           if (upg) messageLog.add(`Baú: ${upg.name} (${upg.description})`);
-          this.state.fov = new FOVSystem(player.effectiveFov);
+          this.state.fov.setRadius(player.effectiveFov);
         } else {
           player.addItem(id);
           const item = ALL_ITEMS.find(i => i.id === id);
@@ -309,7 +309,7 @@ export class ActionSystem {
           player.applyUpgrade(id);
           const upg = ALL_UPGRADES.find(u => u.id === id);
           if (upg) messageLog.add(upg.name + ' ativado.');
-          this.state.fov = new FOVSystem(player.effectiveFov);
+          this.state.fov.setRadius(player.effectiveFov);
           this.state.fov.compute(this.state.map, player.x, player.y);
         } else {
           player.addItem(id);
@@ -351,7 +351,7 @@ export class ActionSystem {
           if (pickCount > 0) {
             this.scene.time.delayedCall(100, showPick);
           } else {
-            this.state.fov = new FOVSystem(player.effectiveFov);
+            this.state.fov.setRadius(player.effectiveFov);
             this.state.fov.compute(this.state.map, player.x, player.y);
           }
         },
