@@ -147,13 +147,13 @@ export class KeyBindScene extends Phaser.Scene {
       return;
     }
 
-    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      this.selectedIndex = (this.selectedIndex - 1 + GAME_ACTIONS.length) % GAME_ACTIONS.length;
+    if (e.key === 'ArrowUp') {
+      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
       this.highlight(this.selectedIndex);
       sound.select();
     }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      this.selectedIndex = (this.selectedIndex + 1) % GAME_ACTIONS.length;
+    if (e.key === 'ArrowDown') {
+      this.selectedIndex = Math.min(GAME_ACTIONS.length - 1, this.selectedIndex + 1);
       this.highlight(this.selectedIndex);
       sound.select();
     }

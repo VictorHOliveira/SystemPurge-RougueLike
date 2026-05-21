@@ -117,12 +117,12 @@ export class UpgradeScene extends Phaser.Scene {
       if (e.key === 'Enter') { this.confirm(); }
       return;
     }
-    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      this.selectedIndex = (this.selectedIndex - 1 + this.options.length) % this.options.length;
+    if (e.key === 'ArrowUp') {
+      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
       this.highlight(this.selectedIndex);
     }
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      this.selectedIndex = (this.selectedIndex + 1) % this.options.length;
+    if (e.key === 'ArrowDown') {
+      this.selectedIndex = Math.min(this.options.length - 1, this.selectedIndex + 1);
       this.highlight(this.selectedIndex);
     }
     if (e.key === 'Enter') {
