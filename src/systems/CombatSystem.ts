@@ -2,8 +2,11 @@ import Phaser from 'phaser';
 import { GameState } from './GameState';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
-import { TILE } from '../constants';
+import { TILE, ENCRYPTION_REDUCTION, LAMINA_BLEED_TICKS, LAMINA_BLEED_DMG, REFLECT_DAMAGE, isAdjacent } from '../constants';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { sound } from '../audio/SoundManager';
+import { Player } from '../entities/Player';
+import { MessageLog } from '../ui/MessageLog';
 
 export interface CombatCallbacks {
   onEnemyDeath: (enemy: Enemy) => void;
@@ -40,7 +43,7 @@ export class CombatSystem {
       return t;
     }
     const t = this.scene.add.text(0, 0, '', {
-      fontFamily: 'Consolas', fontSize: '10px', color: '#66ff66',
+      fontFamily: FONT, fontSize: '10px', color: '#66ff66',
     }).setDepth(12);
     this.bleedTextPool.push(t);
     this.bleedPoolIdx++;
@@ -65,6 +68,39 @@ export class CombatSystem {
       return;
     }
 
+    const dmg = this.calcDamage(attacker, defender, isPlayerAtk, isPlayerDef, isProjectile);
+    if (dmg <= 0) return;
+
+    const dealt = defender.takeDamage(dmg);
+    if (defender instanceof Enemy && dealt > 0) sound.play('enemy_hit');
+    messageLog.add(`${attacker.name} acerta ${defender.name} com ${dealt} de dano.`);
+
+    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy) {
+      this.applyLifeSteal(player, messageLog);
+      this.applyBleed(player, defender, enemyBleeds, messageLog);
+    }
+
+    if (isPlayerDef) {
+      this.applyReflect(attacker, player, dealt, messageLog);
+    }
+
+    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy && defender.isAlive) {
+      this.applyDoubleStrike(player, attacker, defender, messageLog);
+    }
+
+    if (isPlayerDef && !defender.isAlive && player.hasFatalGuard) {
+      defender.hp = 1;
+      player.fatalGuardUsed = true;
+      messageLog.add('Proteção do Setor de Boot! Sobreviveu com 1 HP.');
+    }
+
+    if (!defender.isAlive && defender instanceof Enemy) {
+      this.callbacks.onEnemyDeath(defender);
+    }
+  }
+
+  private calcDamage(attacker: Entity, defender: Entity, isPlayerAtk: boolean, isPlayerDef: boolean, isProjectile: boolean): number {
+    const { player } = this.state;
     let atkVal = isPlayerAtk ? player.effectiveAtk : attacker.attack;
     let defVal = isPlayerDef ? player.effectiveDef : defender.defense;
 
@@ -93,62 +129,52 @@ export class CombatSystem {
     }
 
     if (isPlayerDef && player.hasEncryption) {
-      dmg = Math.max(0, dmg - 3);
+      dmg = Math.max(0, dmg - ENCRYPTION_REDUCTION);
       player.encryptionLayerUsed = true;
-      messageLog.add('Camada de Criptografia reduziu dano em 3.');
+      this.state.messageLog.add('Camada de Criptografia reduziu dano em 3.');
     }
 
-    if (dmg === 0) return;
+    return dmg;
+  }
 
-    const dealt = defender.takeDamage(dmg);
-    if (defender instanceof Enemy && dealt > 0) sound.play('enemy_hit');
-    messageLog.add(`${attacker.name} acerta ${defender.name} com ${dealt} de dano.`);
-
-    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy) {
-      const ls = player.lifeStealAmount;
-      if (ls > 0 && Math.random() < 0.5) {
-        player.heal(ls);
-        messageLog.add(`Dreno de Vida restaurou ${ls} HP.`);
-      }
-
-      if (player.acquiredUpgrades.has('lamina_energizada')) {
-        enemyBleeds.set(defender.id, { ticks: 3, damage: 1 });
-        messageLog.add(`${defender.name} sangrando (1 por 3 turnos).`);
-      }
+  private applyLifeSteal(player: Player, messageLog: MessageLog) {
+    const ls = player.lifeStealAmount;
+    if (ls > 0 && Math.random() < 0.5) {
+      player.heal(ls);
+      messageLog.add(`Dreno de Vida restaurou ${ls} HP.`);
     }
+  }
 
-    if (isPlayerDef) {
-      const upgradeRc = player.reflectChance;
-      const classRc = player.classDef.reflectPercent / 100;
-      const shieldRc = player.acquiredUpgrades.has('escudo_reativo') ? 0.15 : 0;
-      const totalRc = Math.max(upgradeRc, classRc, shieldRc);
-      if (totalRc > 0 && dealt > 0 && Math.random() < totalRc) {
-        const rdmg = attacker.takeDamage(2);
-        if (rdmg > 0) messageLog.add(`Dano refletido: ${rdmg} (${Math.round(totalRc * 100)}%).`);
-        if (!attacker.isAlive && attacker instanceof Enemy) {
-          this.callbacks.onEnemyDeath(attacker);
-        }
+  private applyBleed(player: Player, defender: Enemy, enemyBleeds: Map<string, { ticks: number; damage: number }>, messageLog: MessageLog) {
+    if (player.acquiredUpgrades.has('lamina_energizada')) {
+      enemyBleeds.set(defender.id, { ticks: LAMINA_BLEED_TICKS, damage: LAMINA_BLEED_DMG });
+      messageLog.add(`${defender.name} sangrando (1 por 3 turnos).`);
+    }
+  }
+
+  private applyReflect(attacker: Entity, player: Player, dealt: number, messageLog: MessageLog) {
+    const upgradeRc = player.reflectChance;
+    const classRc = player.classDef.reflectPercent / 100;
+    const shieldRc = player.acquiredUpgrades.has('escudo_reativo') ? 0.15 : 0;
+    const totalRc = Math.max(upgradeRc, classRc, shieldRc);
+    if (totalRc > 0 && dealt > 0 && Math.random() < totalRc) {
+      const rdmg = attacker.takeDamage(REFLECT_DAMAGE);
+      if (rdmg > 0) messageLog.add(`Dano refletido: ${rdmg} (${Math.round(totalRc * 100)}%).`);
+      if (!attacker.isAlive && attacker instanceof Enemy) {
+        this.callbacks.onEnemyDeath(attacker);
       }
     }
+  }
 
-    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy && defender.isAlive) {
-      if (player.acquiredUpgrades.has('golpe_duplo') && Math.random() < 0.3) {
-        const dmg2 = Math.max(1, atkVal - defVal);
-        const dealt2 = defender.takeDamage(dmg2);
-        messageLog.add(`Golpe Duplo! +${dealt2} de dano.`);
-        sound.play('enemy_hit');
-        if (!defender.isAlive) this.callbacks.onEnemyDeath(defender);
-      }
-    }
-
-    if (isPlayerDef && !defender.isAlive && player.hasFatalGuard) {
-      defender.hp = 1;
-      player.fatalGuardUsed = true;
-      messageLog.add('Proteção do Setor de Boot! Sobreviveu com 1 HP.');
-    }
-
-    if (!defender.isAlive && defender instanceof Enemy) {
-      this.callbacks.onEnemyDeath(defender);
+  private applyDoubleStrike(player: Player, attacker: Entity, defender: Enemy, messageLog: MessageLog) {
+    if (player.acquiredUpgrades.has('golpe_duplo') && Math.random() < 0.3) {
+      const atkVal = player.effectiveAtk;
+      const defVal = player.classDef.ignoreDefense ? 0 : defender.defense;
+      const dmg2 = Math.max(1, atkVal - defVal);
+      const dealt2 = defender.takeDamage(dmg2);
+      messageLog.add(`Golpe Duplo! +${dealt2} de dano.`);
+      sound.play('enemy_hit');
+      if (!defender.isAlive) this.callbacks.onEnemyDeath(defender);
     }
   }
 
@@ -159,7 +185,7 @@ export class CombatSystem {
     for (const enemy of enemies) {
       if (!enemy.isAlive) continue;
       if (!player.isAlive) break;
-      if (Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y) === 1) {
+      if (isAdjacent(player.x, player.y, enemy.x, enemy.y)) {
         this.meleeAttack(enemy, player);
       }
     }

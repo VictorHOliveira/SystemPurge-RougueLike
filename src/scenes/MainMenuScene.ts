@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -24,18 +25,18 @@ export class MainMenuScene extends Phaser.Scene {
 
   private playBootSequence() {
     const lines = [
-      { text: 'SISTEMA DE INICIALIZACAO v0.1', color: '#44ddbb' },
-      { text: 'Verificando integridade do kernel... OK', color: '#8899aa' },
-      { text: 'Carregando modulos do sistema:', color: '#8899aa' },
-      { text: '  modulos/crypt/crc32.sys        [OK]', color: '#667788' },
-      { text: '  modulos/net/tcpip.sys          [OK]', color: '#667788' },
-      { text: '  modulos/fs/vfat.sys            [OK]', color: '#667788' },
-      { text: '  modulos/sec/firewall.sys       [OK]', color: '#667788' },
-      { text: 'Drivers de hardware... OK', color: '#8899aa' },
-      { text: 'Memoria: 1024 KB OK', color: '#8899aa' },
-      { text: '', color: '#8899aa' },
-      { text: 'SISTEMA PRONTO.', color: '#00ff88' },
-      { text: '', color: '#8899aa' },
+      { text: 'SISTEMA DE INICIALIZACAO v0.1', color: COLORS.subtitle },
+      { text: 'Verificando integridade do kernel... OK', color: COLORS.muted },
+      { text: 'Carregando modulos do sistema:', color: COLORS.muted },
+      { text: '  modulos/crypt/crc32.sys        [OK]', color: COLORS.bootText },
+      { text: '  modulos/net/tcpip.sys          [OK]', color: COLORS.bootText },
+      { text: '  modulos/fs/vfat.sys            [OK]', color: COLORS.bootText },
+      { text: '  modulos/sec/firewall.sys       [OK]', color: COLORS.bootText },
+      { text: 'Drivers de hardware... OK', color: COLORS.muted },
+      { text: 'Memoria: 1024 KB OK', color: COLORS.muted },
+      { text: '', color: COLORS.muted },
+      { text: 'SISTEMA PRONTO.', color: COLORS.accent },
+      { text: '', color: COLORS.muted },
     ];
 
     const bootTexts: Phaser.GameObjects.Text[] = [];
@@ -44,7 +45,7 @@ export class MainMenuScene extends Phaser.Scene {
     lines.forEach((line, i) => {
       this.time.delayedCall(70 * (i + 1), () => {
         const t = this.add.text(120, startY + i * 18, line.text, {
-          fontFamily: 'Consolas, "Courier New", monospace',
+          fontFamily: FONT,
           fontSize: '12px',
           color: line.color,
         });
@@ -69,35 +70,35 @@ export class MainMenuScene extends Phaser.Scene {
 
   private showMainMenu() {
     this.add.text(512, 90, 'SYSTEM PURGE', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '52px',
-      color: '#00ff88',
+      color: COLORS.accent,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#00ff88', 20, false, true);
+    }).setOrigin(0.5).setShadow(0, 0, COLORS.accent, 20, false, true);
 
     this.add.text(512, 140, `v${version}  —  Roguelike de Limpeza de Sistema`, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '12px',
-      color: '#44ddbb',
+      color: COLORS.subtitle,
     }).setOrigin(0.5);
 
     const div = this.add.graphics();
     div.lineStyle(1, 0x2a4a3a);
     div.lineBetween(256, 165, 768, 165);
 
-    this.addButton(512, 240, '[ INICIAR ]', '#00ff88', () => this.startGame());
-    this.addButton(512, 300, '[ CONTROLES ]', '#ffcc44', () => this.showControls());
-    this.addButton(512, 360, '[ SOBRE ]', '#ffd700', () => this.showAbout());
+    this.addButton(512, 240, '[ INICIAR ]', COLORS.accent, () => this.startGame());
+    this.addButton(512, 300, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(512, 360, '[ SOBRE ]', COLORS.gold, () => this.showAbout());
 
     this.add.text(512, 460, 'SETAS para navegar | ENTER para selecionar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '11px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
 
     this.highlight(0);
     sound.resumeContext();
-    this.input.keyboard!.on('keydown', this.handleInput, this);
+    this.input.keyboard?.on('keydown', this.handleInput, this);
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleInput, this);
     });
@@ -148,9 +149,9 @@ export class MainMenuScene extends Phaser.Scene {
     g.add(panel);
 
     const title = this.add.text(512, 170, 'SOBRE', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '22px',
-      color: '#ffd700',
+      color: COLORS.gold,
       fontStyle: 'bold',
     }).setOrigin(0.5);
     g.add(title);
@@ -174,18 +175,18 @@ export class MainMenuScene extends Phaser.Scene {
     ];
     info.forEach((line, i) => {
       const t = this.add.text(512, 220 + i * 20, line, {
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: FONT,
         fontSize: '13px',
-        color: i === 0 ? '#00ff88' : '#8899aa',
+        color: i === 0 ? COLORS.accent : COLORS.muted,
         fontStyle: i === 0 ? 'bold' : 'normal',
       }).setOrigin(0.5);
       g.add(t);
     });
 
     this.add.text(512, 440, 'ESC para voltar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '12px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
   }
 
@@ -198,9 +199,9 @@ export class MainMenuScene extends Phaser.Scene {
   private addButton(x: number, y: number, label: string, color: string, cb: () => void) {
     const idx = this.buttons.length;
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '22px',
-      color: '#8899aa',
+      color: COLORS.muted,
       fontStyle: 'bold',
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -213,7 +214,7 @@ export class MainMenuScene extends Phaser.Scene {
 
   private highlight(idx: number) {
     this.buttons.forEach((b, i) => {
-      b.text.setColor(i === idx ? b.color : '#8899aa');
+      b.text.setColor(i === idx ? b.color : COLORS.muted);
     });
   }
 

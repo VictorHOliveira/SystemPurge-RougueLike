@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GameState } from './GameState';
-import { MAP_W, MAP_H, TILE } from '../constants';
+import { MAP_W, MAP_H, TILE, parseChestKey } from '../constants';
 import { TileType } from '../data/tiles';
 
 export class RenderSystem {
@@ -132,7 +132,7 @@ export class RenderSystem {
     }
 
     for (const [key, opened] of chests) {
-      const [cx, cy] = key.split(',').map(Number);
+      const [cx, cy] = parseChestKey(key);
       if (!this.dirtyTiles[cy]?.[cx]) continue;
       this.dirtyTiles[cy][cx] = false;
       if (!map.explored[cy]?.[cx]) continue;
@@ -271,7 +271,7 @@ export class RenderSystem {
     }
 
     for (const [key, opened] of chests) {
-      const [cx, cy] = key.split(',').map(Number);
+      const [cx, cy] = parseChestKey(key);
       if (!opened && map.explored[cy]?.[cx]) {
         ctx.fillStyle = '#ffd700';
         ctx.fillRect(1 + cx * s, 1 + cy * s, s, s);

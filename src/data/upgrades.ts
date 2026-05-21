@@ -99,3 +99,35 @@ export function rollRewards(
   const shuffled = [...combined].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
+
+export const UPGRADE_DISP: Record<string, { fmt(lvl: number, plvl: number): string; color: string }> = {
+  virus_scan:           { color: '#4488ff', fmt: (l) => `ATQ+${2*l}` },
+  patch_firewall:       { color: '#44cc88', fmt: (l) => `DEF+${2*l}` },
+  memory_expansion:     { color: '#ffdd44', fmt: (l) => `HP+${10*l}` },
+  kernel_optimization:  { color: '#88ddff', fmt: (l) => `VIS+${2*l}` },
+  root_access:          { color: '#4488ff', fmt: (l) => `ATQ+${1*l}` },
+  disk_cleanup:         { color: '#44aaaa', fmt: (l) => `ATQ+${1*l}/DEF+${1*l}` },
+  ram_overclock:        { color: '#ccaa44', fmt: (l) => `HP+${8*l}/VIS+${1*l}` },
+  cache_boost:          { color: '#4488ff', fmt: (l) => `ATQ+${3*l}` },
+  memory_page:          { color: '#44cc88', fmt: (l) => `DEF+${3*l}` },
+  hyperthreading:       { color: '#ffdd44', fmt: (l) => `HP+${15*l}` },
+  data_bus:             { color: '#44aaaa', fmt: (l) => `ATQ+${2*l}/VIS+${1*l}` },
+  speed_boost:          { color: '#44ddbb', fmt: (l) => `VEL+${(0.5*l).toFixed(1)}` },
+  compression_algorithm:{ color: '#ffdd44', fmt: (l, p) => p ? `HP+${p*2*l}` : `HP+?` },
+  life_steal:           { color: '#aa88cc', fmt: (l) => l >= 3 ? 'Dreno 8' : l >= 2 ? 'Dreno 4' : 'Dreno 2' },
+  system_restore:       { color: '#ffdd44', fmt: () => 'Cura total' },
+  registry_cleaner:     { color: '#aa88cc', fmt: () => 'Esq 15%' },
+  network_shield:       { color: '#aa88cc', fmt: (l) => l >= 3 ? 'Ref 50%' : l >= 2 ? 'Ref 30%' : 'Ref 15%' },
+  cache_partition:      { color: '#aa88cc', fmt: () => 'Regen 0.3' },
+  boot_sector:          { color: '#ff8844', fmt: () => 'Salva 1×' },
+  encryption_layer:     { color: '#ff8844', fmt: () => '-3 1×/and' },
+  lamina_energizada:    { color: '#aa88cc', fmt: () => 'Sangra 1' },
+  golpe_duplo:          { color: '#aa88cc', fmt: () => '×2 30%' },
+  mira_a_laser:         { color: '#4488ff', fmt: (l) => `ATQ+${3*l}` },
+  recarga_rapida:       { color: '#aa88cc', fmt: () => 'CD-1' },
+  escudo_reativo:       { color: '#44cc88', fmt: (l) => `DEF+${1*l}` },
+  campo_pressurizado:   { color: '#aa88cc', fmt: () => 'Pressão+1' },
+  script_compactado:    { color: '#aa88cc', fmt: () => 'CD-1' },
+  dados_corrompidos:    { color: '#aa88cc', fmt: () => 'Sangra+1' },
+  estouro_em_cascata:   { color: '#aa88cc', fmt: (l) => `Alc+${l}` },
+};

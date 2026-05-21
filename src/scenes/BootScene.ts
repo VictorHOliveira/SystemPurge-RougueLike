@@ -17,7 +17,6 @@ export class BootScene extends Phaser.Scene {
     this.load.image('tile_stairs_dim', 'sprites/tiles/tile_stairs_dim.png');
     this.load.image('tile_stairs_up', 'sprites/tiles/tile_stairs_up.png');
     this.load.image('tile_stairs_up_dim', 'sprites/tiles/tile_stairs_up_dim.png');
-    this.load.image('entity_player', 'sprites/entities/entity_player.png');
     this.load.image('enemy_trojan', 'sprites/entities/enemy_trojan.png');
     this.load.image('enemy_worm', 'sprites/entities/enemy_worm.png');
     this.load.image('enemy_spyware', 'sprites/entities/enemy_spyware.png');

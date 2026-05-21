@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { ALL_ITEMS } from '../data/items';
+import { ALL_UPGRADES, UPGRADE_DISP } from '../data/upgrades';
 import { CLASSES } from '../data/classes';
-import { loadBindings, displayKey } from '../data/keybindings';
+import { loadBindings, displayKey, type Bindings } from '../data/keybindings';
+import { RegistryKeys } from '../RegistryKeys';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 const HUD_X = 648;
 const PANEL_W = 358;
@@ -18,69 +21,8 @@ for (const c of CLASSES) {
   CLASS_NAMES[c.id] = c.name;
 }
 
-const UPGRADE_NAMES: Record<string, string> = {
-  virus_scan: 'Varredura de Vírus',
-  patch_firewall: 'Firewall Reforçado',
-  memory_expansion: 'Expansão de Memória',
-  kernel_optimization: 'Otimização do Kernel',
-  root_access: 'Acesso Root',
-  disk_cleanup: 'Limpeza de Disco',
-  ram_overclock: 'Overclock de RAM',
-  cache_boost: 'Cache Acelerado',
-  memory_page: 'Página de Memória',
-  hyperthreading: 'HyperThreading',
-  data_bus: 'Barramento de Dados',
-  system_restore: 'Restauração do Sistema',
-  compression_algorithm: 'Algoritmo de Compressão',
-  life_steal: 'Dreno de Vida',
-  speed_boost: 'Aumento de Velocidade',
-  registry_cleaner: 'Limpador de Registro',
-  network_shield: 'Escudo de Rede',
-  cache_partition: 'Cache Particionado',
-  boot_sector: 'Proteção do Setor de Boot',
-  encryption_layer: 'Camada de Criptografia',
-  lamina_energizada: 'Lâmina Energizada',
-  golpe_duplo: 'Golpe Duplo',
-  mira_a_laser: 'Mira a Laser',
-  recarga_rapida: 'Recarga Rápida',
-  escudo_reativo: 'Escudo Reativo',
-  campo_pressurizado: 'Campo Pressurizado',
-  script_compactado: 'Script Compactado',
-  dados_corrompidos: 'Dados Corrompidos',
-  estouro_em_cascata: 'Estouro em Cascata',
-};
-
-const UPGRADE_DISP: Record<string, { fmt(lvl: number, plvl: number): string; color: string }> = {
-  virus_scan:           { color: '#4488ff', fmt: (l) => `ATQ+${2*l}` },
-  patch_firewall:       { color: '#44cc88', fmt: (l) => `DEF+${2*l}` },
-  memory_expansion:     { color: '#ffdd44', fmt: (l) => `HP+${10*l}` },
-  kernel_optimization:  { color: '#88ddff', fmt: (l) => `VIS+${2*l}` },
-  root_access:          { color: '#4488ff', fmt: (l) => `ATQ+${1*l}` },
-  disk_cleanup:         { color: '#44aaaa', fmt: (l) => `ATQ+${1*l}/DEF+${1*l}` },
-  ram_overclock:        { color: '#ccaa44', fmt: (l) => `HP+${8*l}/VIS+${1*l}` },
-  cache_boost:          { color: '#4488ff', fmt: (l) => `ATQ+${3*l}` },
-  memory_page:          { color: '#44cc88', fmt: (l) => `DEF+${3*l}` },
-  hyperthreading:       { color: '#ffdd44', fmt: (l) => `HP+${15*l}` },
-  data_bus:             { color: '#44aaaa', fmt: (l) => `ATQ+${2*l}/VIS+${1*l}` },
-  speed_boost:          { color: '#44ddbb', fmt: (l) => `VEL+${(0.5*l).toFixed(1)}` },
-  compression_algorithm:{ color: '#ffdd44', fmt: (l, p) => p ? `HP+${p*2*l}` : `HP+?` },
-  life_steal:           { color: '#aa88cc', fmt: (l) => l >= 3 ? 'Dreno 8' : l >= 2 ? 'Dreno 4' : 'Dreno 2' },
-  system_restore:       { color: '#ffdd44', fmt: () => 'Cura total' },
-  registry_cleaner:     { color: '#aa88cc', fmt: () => 'Esq 15%' },
-  network_shield:       { color: '#aa88cc', fmt: (l) => l >= 3 ? 'Ref 50%' : l >= 2 ? 'Ref 30%' : 'Ref 15%' },
-  cache_partition:      { color: '#aa88cc', fmt: () => 'Regen 0.3' },
-  boot_sector:          { color: '#ff8844', fmt: () => 'Salva 1×' },
-  encryption_layer:     { color: '#ff8844', fmt: () => '-3 1×/and' },
-  lamina_energizada:    { color: '#aa88cc', fmt: () => 'Sangra 1' },
-  golpe_duplo:          { color: '#aa88cc', fmt: () => '×2 30%' },
-  mira_a_laser:         { color: '#4488ff', fmt: (l) => `ATQ+${3*l}` },
-  recarga_rapida:       { color: '#aa88cc', fmt: () => 'CD-1' },
-  escudo_reativo:       { color: '#44cc88', fmt: (l) => `DEF+${1*l}` },
-  campo_pressurizado:   { color: '#aa88cc', fmt: () => 'Pressão+1' },
-  script_compactado:    { color: '#aa88cc', fmt: () => 'CD-1' },
-  dados_corrompidos:    { color: '#aa88cc', fmt: () => 'Sangra+1' },
-  estouro_em_cascata:   { color: '#aa88cc', fmt: (l) => `Alc+${l}` },
-};
+const upgradeNameFromId: Record<string, string> = {};
+for (const u of ALL_UPGRADES) upgradeNameFromId[u.id] = u.name;
 
 export class HUDScene extends Phaser.Scene {
   private panel1!: Phaser.GameObjects.Graphics;
@@ -157,22 +99,22 @@ export class HUDScene extends Phaser.Scene {
     const cx = HUD_X + 14;
 
     this.headerText = this.add.text(cx, y + 8, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '14px',
-      color: '#00ff88',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.header,
+      color: COLORS.accent,
       fontStyle: 'bold',
     });
 
     this.subtitleText = this.add.text(cx, y + 26, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '11px',
-      color: '#44ddbb',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.subtitle,
+      color: COLORS.subtitle,
     });
 
     this.classText = this.add.text(cx, y + 40, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '10px',
-      color: '#8899aa',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.class,
+      color: COLORS.muted,
     });
 
     this.hpBarBg = this.add.graphics();
@@ -184,9 +126,9 @@ export class HUDScene extends Phaser.Scene {
     this.hpBarFill = this.add.graphics();
 
     this.hpText = this.add.text(cx + (PANEL_W - 28) / 2, y + 61, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '9px',
-      color: '#ffffff',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.hpText,
+      color: COLORS.white,
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
 
@@ -199,15 +141,15 @@ export class HUDScene extends Phaser.Scene {
     this.xpBarFill = this.add.graphics();
 
     this.xpText = this.add.text(cx + (PANEL_W - 28) / 2, y + 70, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '7px',
-      color: '#ffffff',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.xpText,
+      color: COLORS.white,
     }).setOrigin(0.5, 0);
 
     this.statsText = this.add.text(cx, y + 84, '', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '10px',
-      color: '#778899',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.stats,
+      color: COLORS.subtitleText,
     });
   }
 
@@ -219,17 +161,17 @@ export class HUDScene extends Phaser.Scene {
 
     for (let i = 0; i < 2; i++) {
       this.abilTexts.push(this.add.text(cx, 0, '', {
-        fontFamily: 'Consolas, "Courier New", monospace',
-        fontSize: '12px',
-        color: '#44ddbb',
+        fontFamily: FONT,
+        fontSize: FONT_SIZES.ability,
+        color: COLORS.subtitle,
       }));
     }
 
     for (let i = 0; i < 3; i++) {
       this.invTexts.push(this.add.text(cx, 0, '', {
-        fontFamily: 'Consolas, "Courier New", monospace',
-        fontSize: '12px',
-        color: '#ffd700',
+        fontFamily: FONT,
+        fontSize: FONT_SIZES.ability,
+        color: COLORS.gold,
       }));
     }
   }
@@ -238,111 +180,117 @@ export class HUDScene extends Phaser.Scene {
     const cx = HUD_X + 14;
 
     this.upgradeTitle = this.add.text(cx, 0, 'MELHORIAS', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '10px',
-      color: '#445566',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.panelTitle,
+      color: COLORS.dimText,
     });
 
     for (let i = 0; i < 30; i++) {
       this.statTexts.push(this.add.text(cx, 0, '', {
-        fontFamily: 'Consolas, "Courier New", monospace',
-        fontSize: '10px',
-        color: '#aabbcc',
+        fontFamily: FONT,
+        fontSize: FONT_SIZES.upgrade,
+        color: COLORS.logText,
       }));
     }
   }
 
   private buildPanel4() {
     this.logHeader = this.add.text(HUD_X + 14, 0, '\u203a LOG DO SISTEMA', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '10px',
-      color: '#445566',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.panelTitle,
+      color: COLORS.dimText,
     });
 
     for (let i = 0; i < 8; i++) {
       this.messageTexts.push(this.add.text(HUD_X + 14, 0, '', {
-        fontFamily: 'Consolas, "Courier New", monospace',
-        fontSize: '10px',
-        color: '#8899aa',
+        fontFamily: FONT,
+        fontSize: FONT_SIZES.log,
+        color: COLORS.muted,
       }));
     }
   }
 
   private buildFooter() {
     this.footerText = this.add.text(HUD_X + 14, 628, `System Purge v${version}    [Q/E] Hab  [1-3] Usar`, {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '9px',
-      color: '#334455',
+      fontFamily: FONT,
+      fontSize: FONT_SIZES.footer,
+      color: COLORS.dimBorder,
     });
   }
 
   private messageColor(msg: string): string {
-    if (msg.includes('***') || msg.includes('ATUALIZADO')) return '#ffdd44';
-    if (msg.includes('FALHOU')) return '#ff4444';
-    if (msg.includes('acerta') && msg.includes('dano')) return '#ff9977';
-    if (msg.includes('neutralizado')) return '#ff6655';
-    if (msg.includes('---') || msg.includes('Acessando') || msg.includes('SYSTEM PURGE') || msg.includes('Kernel')) return '#44ddbb';
-    return '#8899aa';
+    if (msg.includes('***') || msg.includes('ATUALIZADO')) return COLORS.warning;
+    if (msg.includes('FALHOU')) return COLORS.error;
+    if (msg.includes('acerta') && msg.includes('dano')) return COLORS.logDano;
+    if (msg.includes('neutralizado')) return COLORS.logMorte;
+    if (msg.includes('---') || msg.includes('Acessando') || msg.includes('SYSTEM PURGE') || msg.includes('Kernel')) return COLORS.logSistema;
+    return COLORS.muted;
   }
 
   update() {
-    const hudVer = (this.registry.get('_hud') as number) ?? 0;
+    const R = RegistryKeys;
+    const hudVer = (this.registry.get(R.hud) as number) ?? 0;
     if (hudVer === this.lastHudVersion) return;
     this.lastHudVersion = hudVer;
 
-    const hp = (this.registry.get('hp') as number) ?? 0;
-    const maxHp = (this.registry.get('maxHp') as number) ?? 1;
-    const level = (this.registry.get('level') as number) ?? 1;
-    const floor = (this.registry.get('floor') as number) ?? 1;
-    const atk = (this.registry.get('attack') as number) ?? 0;
-    const def = (this.registry.get('defense') as number) ?? 0;
-    const xp = (this.registry.get('xp') as number) ?? 0;
-    const xpN = (this.registry.get('xpNext') as number) ?? 1;
-    const kills = (this.registry.get('kills') as number) ?? 0;
-    const name = (this.registry.get('name') as string) ?? 'process.exe';
-    const msgs = (this.registry.get('messages') as string[]) ?? [];
-    const upgrades = (this.registry.get('upgrades') as Map<string, number>) ?? new Map();
-    const inventory = (this.registry.get('inventory') as (string | null)[]) ?? [null, null, null];
-    const classId = (this.registry.get('classId') as string) ?? 'limpador';
-    const cooldowns = (this.registry.get('cooldowns') as number[]) ?? [];
-    const abilities = (this.registry.get('abilities') as { id: string; name: string; cooldown: number; type: string }[]) ?? [];
-    const bleedTicks = (this.registry.get('bleedTicks') as number) ?? 0;
-    const defenseBuff = (this.registry.get('defenseBuff') as number) ?? 0;
+    const hp = (this.registry.get(R.hp) as number) ?? 0;
+    const maxHp = (this.registry.get(R.maxHp) as number) ?? 1;
+    const level = (this.registry.get(R.level) as number) ?? 1;
+    const floor = (this.registry.get(R.floor) as number) ?? 1;
+    const atk = (this.registry.get(R.attack) as number) ?? 0;
+    const def = (this.registry.get(R.defense) as number) ?? 0;
+    const xp = (this.registry.get(R.xp) as number) ?? 0;
+    const xpN = (this.registry.get(R.xpNext) as number) ?? 1;
+    const kills = (this.registry.get(R.kills) as number) ?? 0;
+    const name = (this.registry.get(R.name) as string) ?? 'process.exe';
+    const msgs = (this.registry.get(R.messages) as string[]) ?? [];
+    const upgrades = (this.registry.get(R.upgrades) as Map<string, number>) ?? new Map();
+    const inventory = (this.registry.get(R.inventory) as (string | null)[]) ?? [null, null, null];
+    const classId = (this.registry.get(R.classId) as string) ?? 'limpador';
+    const cooldowns = (this.registry.get(R.cooldowns) as number[]) ?? [];
+    const abilities = (this.registry.get(R.abilities) as { id: string; name: string; cooldown: number; type: string }[]) ?? [];
+    const bleedTicks = (this.registry.get(R.bleedTicks) as number) ?? 0;
+    const defenseBuff = (this.registry.get(R.defenseBuff) as number) ?? 0;
 
     const className = CLASS_NAMES[classId] ?? classId;
-    const abilityCount = abilities.length;
     const b = loadBindings();
 
-    // ── Panel 1 — Status ──
-    this.headerText.setText(name);
-    this.subtitleText.setText(`NV ${level}  \u2502  /system/${floor}`);
-    let classLine = `Classe: ${className}`;
-    if (bleedTicks > 0) classLine += '   \u25b8 SANGRA';
-    if (defenseBuff > 0) classLine += '   \u25b8 CRIPTO';
+    this.updatePanel1({ name, level, floor, className, bleedTicks, defenseBuff, hp, maxHp, xp, xpN, kills });
+    this.updatePanel2(abilities, cooldowns, inventory, b);
+    this.updatePanel3(upgrades, level);
+    this.updatePanel4(msgs);
+    this.updateFooter(b);
+  }
+
+  private updatePanel1(data: { name: string; level: number; floor: number; className: string; bleedTicks: number; defenseBuff: number; hp: number; maxHp: number; xp: number; xpN: number; kills: number }) {
+    this.headerText.setText(data.name);
+    this.subtitleText.setText(`NV ${data.level}  \u2502  /system/${data.floor}`);
+    let classLine = `Classe: ${data.className}`;
+    if (data.bleedTicks > 0) classLine += '   \u25b8 SANGRA';
+    if (data.defenseBuff > 0) classLine += '   \u25b8 CRIPTO';
     this.classText.setText(classLine);
 
-    const hpPct = Math.max(0, Math.min(1, hp / maxHp));
-    const barColor = 0x00ff88;
     const barW = PANEL_W - 28;
+    const hpPct = Math.max(0, Math.min(1, data.hp / data.maxHp));
     this.hpBarFill.clear();
     if (hpPct > 0) {
-      this.hpBarFill.fillStyle(barColor);
+      this.hpBarFill.fillStyle(0x00ff88);
       this.hpBarFill.fillRect(HUD_X + 15, 61, Math.floor((barW - 2) * hpPct), 12);
     }
-    this.hpText.setText(`${hp}/${maxHp}`);
+    this.hpText.setText(`${data.hp}/${data.maxHp}`);
     this.hpText.setColor('#ff4444');
 
-    const xpPct = Math.max(0, Math.min(1, xp / xpN));
+    const xpPct = Math.max(0, Math.min(1, data.xp / data.xpN));
     this.xpBarFill.clear();
     if (xpPct > 0) {
       this.xpBarFill.fillStyle(0x4488ff);
       this.xpBarFill.fillRect(HUD_X + 15, 77, Math.floor((barW - 2) * xpPct), 6);
     }
-    this.xpText.setText(`${xp}/${xpN}`);
+    this.xpText.setText(`${data.xp}/${data.xpN}`);
+    this.statsText.setText(`ABATES  ${data.kills}`);
+  }
 
-    this.statsText.setText(`ABATES  ${kills}`);
-
-    // ── Panel 2 — Ações (abilities + inventory, fixed y=112 h=110) ──
+  private updatePanel2(abilities: { id: string; name: string; cooldown: number; type: string }[], cooldowns: number[], inventory: (string | null)[], b: Bindings) {
     const p2y = 112;
     const p2h = 110;
     this.panel2.clear();
@@ -350,6 +298,7 @@ export class HUDScene extends Phaser.Scene {
 
     const cx = HUD_X + 14;
     let curY = p2y + 8;
+    const abilityCount = abilities.length;
 
     for (let i = 0; i < 2; i++) {
       if (i < abilityCount) {
@@ -360,7 +309,7 @@ export class HUDScene extends Phaser.Scene {
         const status = ready ? 'PRONTO' : `CD: ${cd}`;
         const pad = Math.max(1, 36 - a.name.length - status.length);
         this.abilTexts[i].setText(`[${key}] ${a.name}${' '.repeat(pad)}${status}`);
-        this.abilTexts[i].setColor(ready ? '#44ddbb' : '#ff6644');
+        this.abilTexts[i].setColor(ready ? COLORS.abilityReady : COLORS.abilityCd);
         this.abilTexts[i].setY(curY);
         this.abilTexts[i].setVisible(true);
         curY += 18;
@@ -385,39 +334,42 @@ export class HUDScene extends Phaser.Scene {
       this.invTexts[i].setVisible(true);
       curY += 16;
     }
+  }
 
-    // ── Panel 3 — Melhorias (lista de upgrades) ──
+  private updatePanel3(upgrades: Map<string, number>, level: number) {
     const p3y = 230;
     const p3h = 258;
     this.panel3.clear();
     this.panelRect(this.panel3, p3y, p3h);
 
-    curY = p3y + 8;
+    let curY = p3y + 8;
     this.upgradeTitle.setY(curY);
     curY += 14;
+    const cx = HUD_X + 14;
 
     const upgradeLines: { text: string; color: string }[] = [];
     for (const [id, lvl] of upgrades) {
       const info = UPGRADE_DISP[id];
       const bonus = info ? info.fmt(lvl, level) : '';
-      const color = info ? info.color : '#aabbcc';
-      const name = UPGRADE_NAMES[id] ?? id;
+      const color = info ? info.color : COLORS.logText;
+      const name = upgradeNameFromId[id] ?? id;
       upgradeLines.push({ text: `${name.padEnd(22)} ${bonus.padEnd(12)} nv${lvl}`, color });
     }
 
-    for (let i = 0; i < this.statTexts.length; i++) {
-      if (i < upgradeLines.length) {
-        this.statTexts[i].setText(upgradeLines[i].text);
-        this.statTexts[i].setPosition(cx, curY);
-        this.statTexts[i].setColor(upgradeLines[i].color);
-        this.statTexts[i].setVisible(true);
-        curY += 14;
-      } else {
-        this.statTexts[i].setVisible(false);
-      }
+    const n = upgradeLines.length;
+    for (let i = 0; i < n; i++) {
+      this.statTexts[i].setText(upgradeLines[i].text);
+      this.statTexts[i].setPosition(cx, curY);
+      this.statTexts[i].setColor(upgradeLines[i].color);
+      this.statTexts[i].setVisible(true);
+      curY += 14;
     }
+    for (let i = n; i < this.statTexts.length; i++) {
+      this.statTexts[i].setVisible(false);
+    }
+  }
 
-    // ── Panel 4 — LOG (fixed y=494 h=130) ──
+  private updatePanel4(msgs: string[]) {
     const p4y = 494;
     const p4h = 130;
     this.panel4.clear();
@@ -444,7 +396,9 @@ export class HUDScene extends Phaser.Scene {
         this.messageTexts[i].setVisible(false);
       }
     }
+  }
 
+  private updateFooter(b: Bindings) {
     const abil0 = displayKey(b.ability_0);
     const abil1 = displayKey(b.ability_1);
     const inv0 = displayKey(b.item_0);

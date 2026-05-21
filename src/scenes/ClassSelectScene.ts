@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CLASSES } from '../data/classes';
 import { sound } from '../audio/SoundManager';
 import { loadBindings, displayKey } from '../data/keybindings';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 export class ClassSelectScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -22,11 +23,11 @@ export class ClassSelectScene extends Phaser.Scene {
     bg.fillRect(0, 0, 1024, 640);
 
     this.add.text(477, 40, 'SELECIONE SUA CLASSE', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '26px',
-      color: '#00ff88',
+      color: COLORS.accent,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#00ff88', 10, false, true);
+    }).setOrigin(0.5).setShadow(0, 0, COLORS.accent, 10, false, true);
 
     const div = this.add.graphics();
     div.lineStyle(1, 0x1a3a2a);
@@ -36,12 +37,12 @@ export class ClassSelectScene extends Phaser.Scene {
     this.updateCardHighlights();
 
     this.add.text(477, 600, '\u2190 \u2192 Navegar | ENTER para selecionar | ESC voltar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '13px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
 
-    this.input.keyboard!.on('keydown', this.handleKey, this);
+    this.input.keyboard?.on('keydown', this.handleKey, this);
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleKey, this);
     });
@@ -81,18 +82,18 @@ export class ClassSelectScene extends Phaser.Scene {
     sprite.setScale(3);
 
     this.add.text(cx + w / 2, y + 120, c.name, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '14px',
-      color: '#eef8ff',
+      color: COLORS.lightText,
       fontStyle: 'bold',
       align: 'center',
       wordWrap: { width: 180 },
     }).setOrigin(0.5);
 
     this.add.text(cx + w / 2, y + 160, c.description, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '10px',
-      color: '#778899',
+      color: COLORS.subtitleText,
       align: 'center',
       wordWrap: { width: 175 },
     }).setOrigin(0.5);
@@ -106,9 +107,9 @@ export class ClassSelectScene extends Phaser.Scene {
     ];
     stats.forEach((s, i) => {
       this.add.text(cx + w / 2, statsY + i * 20, s, {
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: FONT,
         fontSize: '12px',
-        color: '#aabbcc',
+        color: COLORS.logText,
       }).setOrigin(0.5);
     });
 
@@ -124,9 +125,9 @@ export class ClassSelectScene extends Phaser.Scene {
     if (!c.canShoot && c.id === 'limpador') passives.push('Apenas corpo a corpo');
     passives.forEach((p, i) => {
       this.add.text(cx + 14, passY + i * 14, `\u25b8 ${p}`, {
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: FONT,
         fontSize: '9px',
-        color: '#ff9944',
+        color: COLORS.tagAccent,
       });
     });
 
@@ -135,14 +136,14 @@ export class ClassSelectScene extends Phaser.Scene {
       const ay = y + h - 60 - (c.abilities.length - 1 - i) * 34;
       const keyLabel = displayKey(i === 0 ? b.ability_0 : b.ability_1);
       this.add.text(cx + 14, ay, `[${keyLabel}] ${a.name} (CD ${a.cooldown})`, {
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: FONT,
         fontSize: '9px',
-        color: '#44ddbb',
+        color: COLORS.subtitle,
       });
       this.add.text(cx + 14, ay + 16, a.description, {
-        fontFamily: 'Consolas, "Courier New", monospace',
+        fontFamily: FONT,
         fontSize: '10px',
-        color: '#99bbaa',
+        color: COLORS.logText,
         wordWrap: { width: 170 },
       });
     });

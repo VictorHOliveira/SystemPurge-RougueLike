@@ -157,86 +157,8 @@ export class Player extends Entity {
   applyUpgrade(id: string): void {
     const curLevel = this.acquiredUpgrades.get(id) ?? 0;
     this.acquiredUpgrades.set(id, curLevel + 1);
-
-    switch (id) {
-      case 'virus_scan':
-        this.attack += 2;
-        break;
-      case 'patch_firewall':
-        this.defense += 2;
-        break;
-      case 'memory_expansion':
-        this.maxHp += 10;
-        this.hp += 10;
-        break;
-      case 'kernel_optimization':
-        this.bonusFov += 2;
-        break;
-      case 'root_access':
-        this.attack += 1;
-        break;
-      case 'disk_cleanup':
-        this.attack += 1;
-        this.defense += 1;
-        break;
-      case 'ram_overclock':
-        this.maxHp += 8;
-        this.hp += 8;
-        this.bonusFov += 1;
-        break;
-      case 'cache_boost':
-        this.attack += 3;
-        break;
-      case 'memory_page':
-        this.defense += 3;
-        break;
-      case 'hyperthreading':
-        this.maxHp += 15;
-        this.hp += 15;
-        break;
-      case 'data_bus':
-        this.attack += 2;
-        this.bonusFov += 1;
-        break;
-      case 'speed_boost':
-        this.moveSpeed += 0.5;
-        break;
-      case 'life_steal':
-        break;
-      case 'system_restore':
-        this.hp = this.maxHp;
-        break;
-      case 'compression_algorithm': {
-        const bonus = this.level * 2;
-        this.maxHp += bonus;
-        this.hp += bonus;
-        break;
-      }
-      case 'lamina_energizada':
-        break;
-      case 'golpe_duplo':
-        break;
-      case 'mira_a_laser':
-        this.attack += 3;
-        break;
-      case 'recarga_rapida':
-        this.cooldownReduction++;
-        break;
-      case 'escudo_reativo':
-        this.defense += 1;
-        break;
-      case 'campo_pressurizado':
-        break;
-      case 'script_compactado':
-        this.cooldownReduction++;
-        break;
-      case 'dados_corrompidos':
-        this.extraBleedDamage++;
-        break;
-      case 'estouro_em_cascata':
-        this.overflowRange = 2 + (this.acquiredUpgrades.get('estouro_em_cascata') ?? 0);
-        break;
-    }
+    const fn = UPGRADE_APPLY[id];
+    if (fn) fn(this, this.level);
   }
 
   processTurnEnd(): void {
@@ -279,3 +201,30 @@ export class Player extends Entity {
     this.encryptionLayerUsed = false;
   }
 }
+
+const UPGRADE_APPLY: Record<string, (p: Player, level: number) => void> = {
+  virus_scan: (p) => { p.attack += 2; },
+  patch_firewall: (p) => { p.defense += 2; },
+  memory_expansion: (p) => { p.maxHp += 10; p.hp += 10; },
+  kernel_optimization: (p) => { p.bonusFov += 2; },
+  root_access: (p) => { p.attack += 1; },
+  disk_cleanup: (p) => { p.attack += 1; p.defense += 1; },
+  ram_overclock: (p) => { p.maxHp += 8; p.hp += 8; p.bonusFov += 1; },
+  cache_boost: (p) => { p.attack += 3; },
+  memory_page: (p) => { p.defense += 3; },
+  hyperthreading: (p) => { p.maxHp += 15; p.hp += 15; },
+  data_bus: (p) => { p.attack += 2; p.bonusFov += 1; },
+  speed_boost: (p) => { p.moveSpeed += 0.5; },
+  life_steal: () => {},
+  system_restore: (p) => { p.hp = p.maxHp; },
+  compression_algorithm: (p, lvl) => { const bonus = lvl * 2; p.maxHp += bonus; p.hp += bonus; },
+  lamina_energizada: () => {},
+  golpe_duplo: () => {},
+  mira_a_laser: (p) => { p.attack += 3; },
+  recarga_rapida: (p) => { p.cooldownReduction++; },
+  escudo_reativo: (p) => { p.defense += 1; },
+  campo_pressurizado: () => {},
+  script_compactado: (p) => { p.cooldownReduction++; },
+  dados_corrompidos: (p) => { p.extraBleedDamage++; },
+  estouro_em_cascata: (p) => { p.overflowRange = 2 + (p.acquiredUpgrades.get('estouro_em_cascata') ?? 0); },
+};

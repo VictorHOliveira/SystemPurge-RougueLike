@@ -6,6 +6,7 @@ import {
   displayKey, keyNameFromEvent, actionLabel,
   Bindings,
 } from '../data/keybindings';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 export class KeyBindScene extends Phaser.Scene {
   private bindings!: Bindings;
@@ -41,7 +42,7 @@ export class KeyBindScene extends Phaser.Scene {
     panel.strokeRoundedRect(180, 30, 664, 580, 6);
 
     this.add.text(512, 55, 'CONTROLES', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '24px',
       color: '#44aaff',
       fontStyle: 'bold',
@@ -52,29 +53,28 @@ export class KeyBindScene extends Phaser.Scene {
     d.lineBetween(220, 80, 804, 80);
 
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '13px',
     };
 
     GAME_ACTIONS.forEach((action, i) => {
       const rowY = 96 + i * 26;
       const label = this.add.text(220, rowY, actionLabel(action), {
-        ...style, color: '#aabbcc',
+        ...style, color: COLORS.logText,
       });
       const keyStr = this.bindings[action];
       const keyT = this.add.text(560, rowY, displayKey(keyStr), {
-        ...style, color: '#44ddbb', fontStyle: 'bold',
+        ...style, color: COLORS.subtitle, fontStyle: 'bold',
       });
       const spacer = this.add.text(580, rowY, '', style);
 
       const isMove = MOVEMENT_ACTIONS.includes(action);
       if (isMove) {
         spacer.setText('  (segurar)');
-        spacer.setColor('#556677');
       }
 
       const row = this.add.text(0, rowY, '', {
-        ...style, fontSize: '13px', color: '#334455',
+        ...style, fontSize: '13px', color: COLORS.dimBorder,
       }).setInteractive({ useHandCursor: true }).setOrigin(0, 0);
 
       const idx = i;
@@ -89,9 +89,9 @@ export class KeyBindScene extends Phaser.Scene {
     });
 
     this.resetText = this.add.text(512, 570, '[ Restaurar Padr\u00f5es ]', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '14px',
-      color: '#ff6644',
+      color: COLORS.abilityCd,
       fontStyle: 'bold',
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -102,7 +102,7 @@ export class KeyBindScene extends Phaser.Scene {
       sound.confirm();
     });
 
-    this.input.keyboard!.on('keydown', this.handleKey, this);
+    this.input.keyboard?.on('keydown', this.handleKey, this);
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleKey, this);
     });
@@ -128,7 +128,6 @@ export class KeyBindScene extends Phaser.Scene {
       this.bindings[action] = keyName;
       saveBindings(this.bindings);
       this.rebindIndex = -1;
-      this.registry.set('bindingsChanged', Date.now());
       this.refreshDisplay();
       sound.confirm();
       return;
@@ -182,9 +181,9 @@ export class KeyBindScene extends Phaser.Scene {
   private showReady(msg: string) {
     this.hideReady();
     this.readyText = this.add.text(512, 540, msg, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '13px',
-      color: '#ffdd44',
+      color: COLORS.warning,
       fontStyle: 'bold',
     }).setOrigin(0.5);
   }
@@ -204,14 +203,14 @@ export class KeyBindScene extends Phaser.Scene {
       const label = this.actionTexts[i * 4];
       const keyT = this.actionTexts[i * 4 + 1];
       if (this.rebindIndex === i) {
-        label.setColor('#ffdd44');
-        keyT.setColor('#ffdd44');
+        label.setColor(COLORS.warning);
+        keyT.setColor(COLORS.warning);
       } else if (i === this.selectedIndex && this.rebindIndex < 0) {
-        label.setColor('#00ff88');
-        keyT.setColor('#00ff88');
+        label.setColor(COLORS.accent);
+        keyT.setColor(COLORS.accent);
       } else {
-        label.setColor('#aabbcc');
-        keyT.setColor('#44ddbb');
+        label.setColor(COLORS.logText);
+        keyT.setColor(COLORS.subtitle);
       }
     }
   }

@@ -1,8 +1,12 @@
 import { FOV } from 'rot-js';
 import { GameMap } from '../world/GameMap';
 
+interface FOVInstance {
+  compute(x: number, y: number, radius: number, callback: (x: number, y: number, r: number, visibility: number) => void): void;
+}
+
 export class FOVSystem {
-  private fov: any;
+  private fov: FOVInstance;
   private radius: number;
   private currentMap: GameMap | null = null;
 

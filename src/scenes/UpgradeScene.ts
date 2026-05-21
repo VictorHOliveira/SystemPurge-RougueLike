@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { Upgrade } from '../data/upgrades';
 import { ItemDef } from '../data/items';
 import { trackEvent } from '../analytics';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 interface CardOption {
   kind: 'upgrade' | 'item';
@@ -47,7 +48,7 @@ export class UpgradeScene extends Phaser.Scene {
         name: u.name,
         description: u.description,
         tag: u.category.toUpperCase(),
-        tagColor: u.category === 'passive' ? '#ff9944' : '#4488ff',
+        tagColor: u.category === 'passive' ? COLORS.tagAccent : COLORS.statAtk,
         subtitle: lvlTag,
       });
     }
@@ -58,7 +59,7 @@ export class UpgradeScene extends Phaser.Scene {
         name: item.name,
         description: item.description,
         tag: 'ITEM',
-        tagColor: '#ffd700',
+        tagColor: COLORS.gold,
       });
     }
     this.options.sort(() => Math.random() - 0.5);
@@ -77,9 +78,9 @@ export class UpgradeScene extends Phaser.Scene {
 
     const titleText = (this.scene.settings.data as Record<string, unknown>)?.title as string | undefined;
     const title = titleText ?? (this.mode === 'reveal' ? 'BAU DE RECOMPENSA' : 'RECOMPENSA DO SISTEMA');
-    const titleColor = this.mode === 'reveal' ? '#ffd700' : '#00ff88';
+    const titleColor = this.mode === 'reveal' ? COLORS.gold : COLORS.accent;
     this.add.text(480, 100, title, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '28px',
       color: titleColor,
       fontStyle: 'bold',
@@ -97,13 +98,13 @@ export class UpgradeScene extends Phaser.Scene {
 
     const footerText = this.mode === 'reveal' ? 'ENTER para continuar' : `Setas para navegar | ENTER para escolher (${this.pickCount} restante(s))`;
     this.add.text(480, 580, footerText, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '14px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
 
     this.highlight(0);
-    this.input.keyboard!.on('keydown', this.handleKey, this);
+    this.input.keyboard?.on('keydown', this.handleKey, this);
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleKey, this);
     });
@@ -161,29 +162,29 @@ export class UpgradeScene extends Phaser.Scene {
     this.cards.push({ bg, y });
 
     this.add.text(cx - w / 2 + 22, y + 14, `[${index + 1}]`, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '22px',
-      color: '#44ddbb',
+      color: COLORS.subtitle,
       fontStyle: 'bold',
     });
 
     this.add.text(cx - w / 2 + 78, y + 10, opt.tag, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '9px',
       color: opt.tagColor,
     });
 
     const nameText = `${opt.name}${opt.subtitle ?? ''}`;
     this.add.text(cx - w / 2 + 78, y + 24, nameText, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '15px',
-      color: '#eef8ff',
+      color: COLORS.lightText,
     });
 
     this.add.text(cx - w / 2 + 78, y + 46, opt.description, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '11px',
-      color: '#8899aa',
+      color: COLORS.muted,
     });
   }
 }

@@ -15,23 +15,11 @@ export class TurnSystem {
     this.phase = TurnPhase.ENEMY_TURN;
   }
 
-  endEnemyTurn(): void {
-    this.phase = TurnPhase.DONE;
-  }
-
   reset(): void {
     this.phase = TurnPhase.PLAYER_TURN;
   }
 
   get isPlayerTurn(): boolean {
     return this.phase === TurnPhase.PLAYER_TURN;
-  }
-
-  get isEnemyTurn(): boolean {
-    return this.phase === TurnPhase.ENEMY_TURN;
-  }
-
-  get isDone(): boolean {
-    return this.phase === TurnPhase.DONE;
   }
 }

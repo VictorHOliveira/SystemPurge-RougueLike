@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { sound } from '../audio/SoundManager';
+import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -24,36 +25,36 @@ export class PauseScene extends Phaser.Scene {
     panel.strokeRoundedRect(280, 140, 400, 360, 6);
 
     this.add.text(480, 175, 'PAUSADO', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '32px',
-      color: '#00ff88',
+      color: COLORS.accent,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, '#00ff88', 10, false, true);
+    }).setOrigin(0.5).setShadow(0, 0, COLORS.accent, 10, false, true);
 
     const divider = this.add.graphics();
     divider.lineStyle(1, 0x2a4a3a);
     divider.lineBetween(340, 205, 620, 205);
 
-    this.addButton(480, 250, '[ Continuar ]', '#44ddbb', () => this.resumeGame());
-    this.addButton(480, 310, '[ Controles ]', '#ffcc44', () => this.showControls());
-    this.addButton(480, 370, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
-    this.addButton(480, 430, '[ Menu Inicial ]', '#ffd700', () => this.goToMainMenu());
+    this.addButton(480, 250, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
+    this.addButton(480, 310, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(480, 370, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(480, 430, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
 
     this.add.text(480, 480, 'Setas para navegar | ENTER para selecionar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '11px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
 
     this.add.text(480, 498, 'ESC para continuar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '11px',
-      color: '#445566',
+      color: COLORS.dimText,
     }).setOrigin(0.5);
 
     this.highlight(0);
 
-    this.input.keyboard!.on('keydown', this.handleKey, this);
+    this.input.keyboard?.on('keydown', this.handleKey, this);
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleKey, this);
     });
@@ -85,9 +86,9 @@ export class PauseScene extends Phaser.Scene {
   private addButton(x: number, y: number, label: string, color: string, cb: () => void) {
     const idx = this.buttons.length;
     const text = this.add.text(x, y, label, {
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontFamily: FONT,
       fontSize: '20px',
-      color: '#8899aa',
+      color: COLORS.muted,
       fontStyle: 'bold',
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -100,7 +101,7 @@ export class PauseScene extends Phaser.Scene {
 
   private highlight(idx: number) {
     this.buttons.forEach((b, i) => {
-      b.text.setColor(i === idx ? b.color : '#8899aa');
+      b.text.setColor(i === idx ? b.color : COLORS.muted);
     });
   }
 
