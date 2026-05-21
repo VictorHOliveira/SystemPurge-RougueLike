@@ -20,16 +20,37 @@ export class ProjectileSystem {
   private enemyGrid: (Enemy | null)[][] = [];
   private isDaemon: boolean = false;
 
+  private projPool: Phaser.GameObjects.Image[] = [];
+  private projPoolIdx = 0;
+
   constructor(scene: Phaser.Scene, state: GameState, callbacks: ProjectileCallbacks) {
     this.scene = scene;
     this.state = state;
     this.callbacks = callbacks;
+
+    this.enemyGrid = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(null));
+  }
+
+  private getProjImage(): Phaser.GameObjects.Image {
+    if (this.projPoolIdx < this.projPool.length) {
+      const p = this.projPool[this.projPoolIdx++];
+      p.setVisible(true).setAlpha(1).setScale(1);
+      this.scene.tweens.killTweensOf(p);
+      return p;
+    }
+    const p = this.scene.add.image(0, 0, this.projectileTexture)
+      .setOrigin(0.5, 0.5).setDepth(15);
+    this.projPool.push(p);
+    this.projPoolIdx++;
+    return p;
   }
 
   rebuildEnemyGrid() {
     const { enemies } = this.state;
     this.isDaemon = this.state.classId === 'daemon';
-    this.enemyGrid = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(null));
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++)
+        this.enemyGrid[y][x] = null;
     for (const e of enemies) {
       if (e.isAlive) this.enemyGrid[e.y][e.x] = e;
     }
@@ -64,6 +85,9 @@ export class ProjectileSystem {
     const pierce = player.classDef.projectilesPierce;
     const range = Math.ceil(player.effectiveFov);
 
+    const proj = this.getProjImage();
+    proj.setTexture(this.projectileTexture);
+
     if (pierce) {
       const enemiesHit: Enemy[] = [];
       let endX = player.x;
@@ -78,15 +102,14 @@ export class ProjectileSystem {
         const enemy = this.enemyAt(tx, ty);
         if (enemy?.isAlive) enemiesHit.push(enemy);
       }
-      if (endX === player.x && endY === player.y) return;
+      if (endX === player.x && endY === player.y) {
+        proj.setVisible(false);
+        return;
+      }
 
       sound.play('projectile');
       this.callbacks.onAnimationStart();
-      const proj = this.scene.add.image(
-        player.x * TILE + TILE / 2,
-        player.y * TILE + TILE / 2,
-        this.projectileTexture,
-      ).setOrigin(0.5, 0.5).setDepth(15);
+      proj.setPosition(player.x * TILE + TILE / 2, player.y * TILE + TILE / 2);
 
       this.scene.tweens.add({
         targets: proj,
@@ -95,7 +118,7 @@ export class ProjectileSystem {
         duration: 80,
         ease: 'Linear',
         onComplete: () => {
-          proj.destroy();
+          proj.setVisible(false);
           for (const enemy of enemiesHit) {
             this.callbacks.meleeAttack(player, enemy, true);
           }
@@ -107,15 +130,14 @@ export class ProjectileSystem {
     }
 
     const target = this.getDirEnemy(dx, dy);
-    if (target.x === player.x && target.y === player.y) return;
+    if (target.x === player.x && target.y === player.y) {
+      proj.setVisible(false);
+      return;
+    }
 
     sound.play('projectile');
     this.callbacks.onAnimationStart();
-    const proj = this.scene.add.image(
-      player.x * TILE + TILE / 2,
-      player.y * TILE + TILE / 2,
-      this.projectileTexture,
-    ).setOrigin(0.5, 0.5).setDepth(15);
+    proj.setPosition(player.x * TILE + TILE / 2, player.y * TILE + TILE / 2);
 
     this.scene.tweens.add({
       targets: proj,
@@ -124,7 +146,7 @@ export class ProjectileSystem {
       duration: 80,
       ease: 'Linear',
       onComplete: () => {
-        proj.destroy();
+        proj.setVisible(false);
         if (target.enemy) {
           this.callbacks.meleeAttack(player, target.enemy, true);
         } else {

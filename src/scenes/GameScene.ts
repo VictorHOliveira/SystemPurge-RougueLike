@@ -39,6 +39,8 @@ export class GameScene extends Phaser.Scene {
   private lastDefBuff = -1; private lastTempAtk = -1; private lastTempDef = -1;
   private lastBonusFov = -1; private lastCDR = -1; private lastBaseFov = -1;
   private lastBaseMs = -1; private lastCurMs = -1;
+  private lastUpgrades = ''; private lastInventory = ''; private lastCooldowns = '';
+  private lastMessages: string[] = [];
 
   init(data?: { classId?: string }) {
     if (data?.classId) this.classId = data.classId;
@@ -156,11 +158,15 @@ export class GameScene extends Phaser.Scene {
     if (p.classDef.fov !== this.lastBaseFov) { this.lastBaseFov = p.classDef.fov; this.registry.set('baseFov', p.classDef.fov); }
     if (p.classDef.moveSpeed !== this.lastBaseMs) { this.lastBaseMs = p.classDef.moveSpeed; this.registry.set('baseMoveSpeed', p.classDef.moveSpeed); }
     if (p.moveSpeed !== this.lastCurMs) { this.lastCurMs = p.moveSpeed; this.registry.set('currentMoveSpeed', p.moveSpeed); }
-    this.registry.set('messages', this.state.messageLog?.getLast(10) ?? []);
-    this.registry.set('upgrades', p.acquiredUpgrades);
-    this.registry.set('inventory', p.inventory);
-    this.registry.set('classId', this.classId);
-    this.registry.set('cooldowns', p.cooldowns);
+    const msgs = this.state.messageLog?.getLast(10) ?? [];
+    if (msgs !== this.lastMessages) { this.lastMessages = msgs; this.registry.set('messages', msgs); }
+    const upgStr = [...p.acquiredUpgrades.entries()].map(e => `${e[0]}:${e[1]}`).join(',');
+    if (upgStr !== this.lastUpgrades) { this.lastUpgrades = upgStr; this.registry.set('upgrades', p.acquiredUpgrades); }
+    const invStr = p.inventory.join(',');
+    if (invStr !== this.lastInventory) { this.lastInventory = invStr; this.registry.set('inventory', p.inventory); }
+    if (this.classId !== this.registry.get('classId')) { this.registry.set('classId', this.classId); }
+    const cdStr = p.cooldowns.join(',');
+    if (cdStr !== this.lastCooldowns) { this.lastCooldowns = cdStr; this.registry.set('cooldowns', p.cooldowns); }
     this.registry.set('abilities', p.classDef.abilities);
 
     if (this.isAnimating) return;
@@ -296,7 +302,7 @@ export class GameScene extends Phaser.Scene {
         const upg = upgs[0];
         this.state.player.applyUpgrade(upg.id);
         this.state.messageLog.add(`Altar do Sistema concedeu ${upg.name}!`);
-        this.state.fov = new FOVSystem(this.state.player.effectiveFov);
+        this.state.fov.setRadius(this.state.player.effectiveFov);
         this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y);
       }
       this.state.map.setTile(nx, ny, TileType.FLOOR);
@@ -343,6 +349,7 @@ export class GameScene extends Phaser.Scene {
 
     this.processEnemyAI();
     this.projectileSystem.rebuildEnemyGrid();
+    this.combatSystem.rebuildEnemyMap();
 
     this.state.turnSystem.reset();
 
@@ -403,7 +410,6 @@ export class GameScene extends Phaser.Scene {
 
   private handleEnemyDeath(enemy: Enemy) {
     this.state.kills++;
-    this.projectileSystem.rebuildEnemyGrid();
     const color = enemy.textureKey === 'enemy_boss' ? 0xffd700 : 0xff4444;
     this.renderSystem.spawnParticles(enemy.x, enemy.y, color, 8);
     sound.play('enemy_death');
@@ -435,6 +441,7 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.createRenderObjects(this.state.player.classDef.textureKey);
     this.renderSystem.createEnemySprites();
     this.projectileSystem.rebuildEnemyGrid();
+    this.combatSystem.rebuildEnemyMap();
     this.renderSystem.redrawMap();
     this.renderSystem.syncVisibility();
     this.renderSystem.syncEntitySprites();

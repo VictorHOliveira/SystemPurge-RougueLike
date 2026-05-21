@@ -8,6 +8,7 @@ export class RenderSystem {
   private state: GameState;
   private dirtyTiles: boolean[][] = [];
   private prevVisible: boolean[][] = [];
+  private miniMapDirty = true;
 
   tileRT!: Phaser.GameObjects.RenderTexture;
   miniMap!: Phaser.GameObjects.Graphics;
@@ -23,6 +24,7 @@ export class RenderSystem {
   private initDirtyGrid() {
     this.dirtyTiles = [];
     this.prevVisible = [];
+    this.miniMapDirty = true;
     for (let y = 0; y < MAP_H; y++) {
       this.dirtyTiles[y] = [];
       this.prevVisible[y] = [];
@@ -37,6 +39,7 @@ export class RenderSystem {
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++)
         this.dirtyTiles[y][x] = true;
+    this.miniMapDirty = true;
   }
 
   markDirty(x: number, y: number) {
@@ -51,6 +54,7 @@ export class RenderSystem {
         if (map.explored[y][x] && map.visible[y][x] !== this.prevVisible[y][x]) {
           this.dirtyTiles[y][x] = true;
           this.prevVisible[y][x] = map.visible[y][x];
+          this.miniMapDirty = true;
         }
       }
     }
@@ -134,7 +138,10 @@ export class RenderSystem {
       this.tileRT.draw(tex, cx * TILE, cy * TILE);
     }
 
-    this.drawMiniMap();
+    if (this.miniMapDirty) {
+      this.drawMiniMap();
+      this.miniMapDirty = false;
+    }
   }
 
   syncEntitySprites() {
@@ -198,12 +205,8 @@ export class RenderSystem {
 
   centerOnPlayer() {
     const { player } = this.state;
-    this.scene.cameras.main.pan(
-      player.x * TILE + TILE / 2,
-      player.y * TILE + TILE / 2,
-      80,
-      'Sine.easeInOut',
-    );
+    this.scene.cameras.main.scrollX = player.x * TILE;
+    this.scene.cameras.main.scrollY = player.y * TILE;
   }
 
   spawnParticles(x: number, y: number, tint: number, count: number = 6) {

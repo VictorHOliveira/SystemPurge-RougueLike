@@ -17,11 +17,19 @@ export class CombatSystem {
 
   private bleedTextPool: Phaser.GameObjects.Text[] = [];
   private bleedPoolIdx = 0;
+  private enemyMap = new Map<string, Enemy>();
 
   constructor(scene: Phaser.Scene, state: GameState, callbacks: CombatCallbacks) {
     this.scene = scene;
     this.state = state;
     this.callbacks = callbacks;
+  }
+
+  rebuildEnemyMap() {
+    this.enemyMap.clear();
+    for (const e of this.state.enemies) {
+      if (e.isAlive) this.enemyMap.set(e.id, e);
+    }
   }
 
   private getBleedText(): Phaser.GameObjects.Text {
@@ -170,10 +178,10 @@ export class CombatSystem {
   }
 
   processEnemyBleeds() {
-    const { enemies, messageLog, enemyBleeds } = this.state;
+    const { messageLog, enemyBleeds } = this.state;
     this.resetBleedPool();
     for (const [id, bleed] of enemyBleeds) {
-      const enemy = enemies.find(e => e.id === id);
+      const enemy = this.enemyMap.get(id);
       if (!enemy || !enemy.isAlive) {
         enemyBleeds.delete(id);
         continue;

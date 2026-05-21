@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GameState } from './GameState';
-import { FOVSystem } from './FOV';
+import type { FOVSystem } from './FOV';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
 import { TILE } from '../constants';
@@ -24,6 +24,10 @@ export class ActionSystem {
   private state: GameState;
   private callbacks: ActionCallbacks;
 
+  private ringPool: Phaser.GameObjects.Graphics[] = [];
+  private beamPool: Phaser.GameObjects.Graphics[] = [];
+  private projPool: Phaser.GameObjects.Image[] = [];
+
   constructor(scene: Phaser.Scene, state: GameState, callbacks: ActionCallbacks) {
     this.scene = scene;
     this.state = state;
@@ -32,6 +36,33 @@ export class ActionSystem {
 
   private get projectileTexture(): string {
     return this.state.classId === 'daemon' ? 'projectile_daemon' : 'projectile_player';
+  }
+
+  private getRing(): Phaser.GameObjects.Graphics {
+    for (const r of this.ringPool) {
+      if (!r.visible) { r.setVisible(true).setAlpha(1).setScale(1).clear(); this.scene.tweens.killTweensOf(r); return r; }
+    }
+    const r = this.scene.add.graphics().setDepth(8);
+    this.ringPool.push(r);
+    return r;
+  }
+
+  private getBeam(): Phaser.GameObjects.Graphics {
+    for (const b of this.beamPool) {
+      if (!b.visible) { b.setVisible(true).setAlpha(1).clear(); this.scene.tweens.killTweensOf(b); return b; }
+    }
+    const b = this.scene.add.graphics().setDepth(8);
+    this.beamPool.push(b);
+    return b;
+  }
+
+  private getProjImage(): Phaser.GameObjects.Image {
+    for (const p of this.projPool) {
+      if (!p.visible) { p.setVisible(true).setAlpha(1).setScale(1); this.scene.tweens.killTweensOf(p); return p; }
+    }
+    const p = this.scene.add.image(0, 0, this.projectileTexture).setOrigin(0.5, 0.5).setDepth(15);
+    this.projPool.push(p);
+    return p;
   }
 
   useItem(slot: number) {
@@ -123,11 +154,9 @@ export class ActionSystem {
         this.callbacks.onAnimationStart();
         let completed = 0;
         for (const hit of hits) {
-          const proj = this.scene.add.image(
-            player.x * TILE + TILE / 2,
-            player.y * TILE + TILE / 2,
-            this.projectileTexture,
-          ).setOrigin(0.5, 0.5).setDepth(15);
+          const proj = this.getProjImage();
+          proj.setTexture(this.projectileTexture);
+          proj.setPosition(player.x * TILE + TILE / 2, player.y * TILE + TILE / 2);
           this.scene.tweens.add({
             targets: proj,
             x: hit.tx * TILE + TILE / 2,
@@ -135,7 +164,7 @@ export class ActionSystem {
             duration: 100,
             ease: 'Linear',
             onComplete: () => {
-              proj.destroy();
+              proj.setVisible(false);
               const baseDmg = Math.max(1, player.effectiveAtk - hit.enemy.defense);
               const dmg = Math.floor(baseDmg * 1.5);
               hit.enemy.takeDamage(dmg);
@@ -182,13 +211,12 @@ export class ActionSystem {
         const cx = player.x * TILE + TILE / 2;
         const cy = player.y * TILE + TILE / 2;
         const r = aoeRange * TILE;
-        const ring = this.scene.add.graphics();
+        const ring = this.getRing();
         ring.fillStyle(0xff44aa, 0.15);
         ring.fillCircle(0, 0, r);
         ring.lineStyle(4, 0xff44aa, 0.9);
         ring.strokeCircle(0, 0, r);
         ring.setPosition(cx, cy);
-        ring.setDepth(8);
         ring.setScale(0.2);
         this.scene.tweens.add({
           targets: ring,
@@ -197,7 +225,7 @@ export class ActionSystem {
           alpha: 0,
           duration: 300,
           ease: 'Cubic.easeOut',
-          onComplete: () => ring.destroy(),
+          onComplete: () => { ring.clear(); ring.setVisible(false); },
         });
         break;
       }
@@ -221,18 +249,17 @@ export class ActionSystem {
           this.callbacks.spawnParticles(target.x, target.y, 0x66ff66, 4);
           sound.play('enemy_hit');
           if (!target.isAlive) this.callbacks.onEnemyDeath(target);
-          const beam = this.scene.add.graphics();
+          const beam = this.getBeam();
           beam.lineStyle(3, 0x66ff66, 0.7);
           beam.lineBetween(
             player.x * TILE + TILE / 2, player.y * TILE + TILE / 2,
             target.x * TILE + TILE / 2, target.y * TILE + TILE / 2,
           );
-          beam.setDepth(8);
           this.scene.tweens.add({
             targets: beam,
             alpha: 0,
             duration: 400,
-            onComplete: () => beam.destroy(),
+            onComplete: () => { beam.clear(); beam.setVisible(false); },
           });
         } else {
           messageLog.add('Nenhum inimigo alcancavel.');
