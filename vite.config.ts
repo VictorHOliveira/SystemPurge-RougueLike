@@ -4,5 +4,6 @@ export default defineConfig({
   base: '/SystemPurge-RougueLike/',
   build: {
     target: 'esnext',
+    chunkSizeWarningLimit: 2000,
   },
 });

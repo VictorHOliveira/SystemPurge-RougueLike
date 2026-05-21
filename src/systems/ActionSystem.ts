@@ -3,7 +3,7 @@ import { GameState } from './GameState';
 import type { FOVSystem } from './FOV';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
-import { TILE } from '../constants';
+import { TILE, isAdjacent } from '../constants';
 import { ALL_UPGRADES, rollRewards } from '../data/upgrades';
 import { ALL_ITEMS } from '../data/items';
 import { sound } from '../audio/SoundManager';
@@ -127,7 +127,7 @@ export class ActionSystem {
         let hitCount = 0;
         for (const e of enemies) {
           if (!e.isAlive) continue;
-          if (!this.isAdjacent(player.x, player.y, e.x, e.y)) continue;
+          if (!isAdjacent(player.x, player.y, e.x, e.y)) continue;
           const defVal = player.classDef.ignoreDefense ? 0 : e.defense;
           const dmg = Math.max(1, player.effectiveAtk - defVal);
           e.takeDamage(dmg);
@@ -388,7 +388,4 @@ export class ActionSystem {
     showPick();
   }
 
-  private isAdjacent(ax: number, ay: number, bx: number, by: number): boolean {
-    return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
-  }
 }

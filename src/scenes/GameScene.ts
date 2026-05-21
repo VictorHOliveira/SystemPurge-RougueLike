@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { Enemy } from '../entities/Enemy';
-import { FOVSystem } from '../systems/FOV';
+import type { FOVSystem } from '../systems/FOV';
 import { RenderSystem } from '../systems/RenderSystem';
 import { CombatSystem } from '../systems/CombatSystem';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
@@ -11,7 +11,7 @@ import { TileType } from '../data/tiles';
 import { rollUpgrades } from '../data/upgrades';
 import { trackEvent } from '../analytics';
 import { sound } from '../audio/SoundManager';
-import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE } from '../constants';
+import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, isAdjacent } from '../constants';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -129,10 +129,6 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.scene.launch('HUD');
-  }
-
-  private setIfChanged(key: string, value: any) {
-    if (this.registry.get(key) !== value) this.registry.set(key, value);
   }
 
   update(_time: number, delta: number) {
@@ -381,7 +377,7 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.state.enemies) {
       if (!enemy.isAlive) continue;
       if (!this.state.player.isAlive) break;
-      if (this.isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) continue;
+      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) continue;
 
       const canSeePlayer = this.state.map.visible[enemy.y]?.[enemy.x] ?? false;
 
@@ -397,7 +393,7 @@ export class GameScene extends Phaser.Scene {
         },
       );
 
-      if (this.isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
+      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
         this.combatSystem.meleeAttack(enemy, this.state.player);
         if (!this.state.player.isAlive) {
           this.state.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
@@ -472,7 +468,4 @@ export class GameScene extends Phaser.Scene {
     this.generateFloor(true);
   }
 
-  private isAdjacent(ax: number, ay: number, bx: number, by: number): boolean {
-    return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
-  }
 }
