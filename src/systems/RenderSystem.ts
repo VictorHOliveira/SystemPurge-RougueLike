@@ -205,8 +205,10 @@ export class RenderSystem {
 
   centerOnPlayer() {
     const { player } = this.state;
-    this.scene.cameras.main.scrollX = player.x * TILE;
-    this.scene.cameras.main.scrollY = player.y * TILE;
+    this.scene.cameras.main.centerOn(
+      player.x * TILE + TILE / 2,
+      player.y * TILE + TILE / 2,
+    );
   }
 
   spawnParticles(x: number, y: number, tint: number, count: number = 6) {
