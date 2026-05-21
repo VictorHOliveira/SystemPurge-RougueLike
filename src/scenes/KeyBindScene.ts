@@ -14,9 +14,14 @@ export class KeyBindScene extends Phaser.Scene {
   private actionTexts: Phaser.GameObjects.Text[] = [];
   private readyText?: Phaser.GameObjects.Text;
   private resetText!: Phaser.GameObjects.Text;
+  private returnScene = 'Pause';
 
   constructor() {
     super('KeyBind');
+  }
+
+  init(data: { returnScene?: string }) {
+    this.returnScene = data.returnScene ?? 'Pause';
   }
 
   create() {
@@ -132,7 +137,7 @@ export class KeyBindScene extends Phaser.Scene {
     if (e.key === 'Escape') {
       sound.select();
       this.scene.stop();
-      this.scene.resume('Pause');
+      if (this.returnScene) this.scene.resume(this.returnScene);
       return;
     }
 

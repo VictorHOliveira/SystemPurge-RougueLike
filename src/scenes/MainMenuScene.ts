@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
-import { loadBindings, displayKey } from '../data/keybindings';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -87,7 +86,7 @@ export class MainMenuScene extends Phaser.Scene {
     div.lineBetween(256, 165, 768, 165);
 
     this.addButton(512, 240, '[ INICIAR ]', '#00ff88', () => this.startGame());
-    this.addButton(512, 300, '[ COMANDOS ]', '#44aaff', () => this.showCommands());
+    this.addButton(512, 300, '[ CONTROLES ]', '#ffcc44', () => this.showControls());
     this.addButton(512, 360, '[ SOBRE ]', '#ffd700', () => this.showAbout());
 
     this.add.text(512, 460, 'SETAS para navegar | ENTER para selecionar', {
@@ -126,69 +125,9 @@ export class MainMenuScene extends Phaser.Scene {
     }
   }
 
-  private showCommands() {
-    this.inSubmenu = true;
-    this.submenuGroup = this.add.group();
-
-    const g = this.submenuGroup;
-
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x00, 0.75);
-    overlay.fillRect(0, 0, 1024, 640);
-    g.add(overlay);
-
-    const panel = this.add.graphics();
-    panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(270, 110, 484, 420, 6);
-    panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(270, 110, 484, 420, 6);
-    g.add(panel);
-
-    const title = this.add.text(512, 140, 'COMANDOS', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '22px',
-      color: '#44aaff',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-    g.add(title);
-
-    const d = this.add.graphics();
-    d.lineStyle(1, 0x2a4a3a);
-    d.lineBetween(310, 165, 714, 165);
-    g.add(d);
-
-    const b = loadBindings();
-    const moveStr = `${displayKey(b.move_left)} ${displayKey(b.move_up)} ${displayKey(b.move_down)} ${displayKey(b.move_right)}`;
-    const shootStr = `${displayKey(b.shoot_left)}  ${displayKey(b.shoot_up)}  ${displayKey(b.shoot_down)}  ${displayKey(b.shoot_right)}`;
-    const cmds = [
-      { key: moveStr, desc: 'Mover personagem' },
-      { key: shootStr, desc: 'Atirar projetil' },
-      { key: displayKey(b.ability_0), desc: 'Habilidade especial (classe)' },
-      { key: displayKey(b.ability_1), desc: '2a habilidade (Daemon)' },
-      { key: displayKey(b.wait), desc: 'Aguardar um turno' },
-      { key: displayKey(b.pause), desc: 'Abrir menu de pausa' },
-      { key: displayKey(b.restart), desc: 'Reiniciar (quando morto)' },
-    ];
-
-    const style = {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '14px',
-      color: '#8899aa',
-    };
-
-    cmds.forEach((cmd, i) => {
-      const y = 200 + i * 40;
-      const k = this.add.text(310, y, cmd.key, { ...style, color: '#44ddbb', fontStyle: 'bold' });
-      g.add(k);
-      const v = this.add.text(440, y, cmd.desc, style);
-      g.add(v);
-    });
-
-    this.add.text(512, 440, 'ESC para voltar', {
-      fontFamily: 'Consolas, "Courier New", monospace',
-      fontSize: '12px',
-      color: '#445566',
-    }).setOrigin(0.5);
+  private showControls() {
+    this.scene.pause();
+    this.scene.launch('KeyBind', { returnScene: 'MainMenu' });
   }
 
   private showAbout() {
