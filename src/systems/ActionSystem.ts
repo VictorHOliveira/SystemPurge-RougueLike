@@ -25,8 +25,11 @@ export class ActionSystem {
   private callbacks: ActionCallbacks;
 
   private ringPool: Phaser.GameObjects.Graphics[] = [];
+  private ringPoolIdx = 0;
   private beamPool: Phaser.GameObjects.Graphics[] = [];
+  private beamPoolIdx = 0;
   private projPool: Phaser.GameObjects.Image[] = [];
+  private projPoolIdx = 0;
 
   constructor(scene: Phaser.Scene, state: GameState, callbacks: ActionCallbacks) {
     this.scene = scene;
@@ -39,29 +42,41 @@ export class ActionSystem {
   }
 
   private getRing(): Phaser.GameObjects.Graphics {
-    for (const r of this.ringPool) {
-      if (!r.visible) { r.setVisible(true).setAlpha(1).setScale(1).clear(); this.scene.tweens.killTweensOf(r); return r; }
+    if (this.ringPoolIdx < this.ringPool.length) {
+      const r = this.ringPool[this.ringPoolIdx++];
+      r.setVisible(true).setAlpha(1).setScale(1).clear();
+      this.scene.tweens.killTweensOf(r);
+      return r;
     }
     const r = this.scene.add.graphics().setDepth(8);
     this.ringPool.push(r);
+    this.ringPoolIdx++;
     return r;
   }
 
   private getBeam(): Phaser.GameObjects.Graphics {
-    for (const b of this.beamPool) {
-      if (!b.visible) { b.setVisible(true).setAlpha(1).clear(); this.scene.tweens.killTweensOf(b); return b; }
+    if (this.beamPoolIdx < this.beamPool.length) {
+      const b = this.beamPool[this.beamPoolIdx++];
+      b.setVisible(true).setAlpha(1).clear();
+      this.scene.tweens.killTweensOf(b);
+      return b;
     }
     const b = this.scene.add.graphics().setDepth(8);
     this.beamPool.push(b);
+    this.beamPoolIdx++;
     return b;
   }
 
   private getProjImage(): Phaser.GameObjects.Image {
-    for (const p of this.projPool) {
-      if (!p.visible) { p.setVisible(true).setAlpha(1).setScale(1); this.scene.tweens.killTweensOf(p); return p; }
+    if (this.projPoolIdx < this.projPool.length) {
+      const p = this.projPool[this.projPoolIdx++];
+      p.setVisible(true).setAlpha(1).setScale(1);
+      this.scene.tweens.killTweensOf(p);
+      return p;
     }
     const p = this.scene.add.image(0, 0, this.projectileTexture).setOrigin(0.5, 0.5).setDepth(15);
     this.projPool.push(p);
+    this.projPoolIdx++;
     return p;
   }
 
@@ -114,6 +129,9 @@ export class ActionSystem {
   }
 
   useAbility(index: number) {
+    this.ringPoolIdx = 0;
+    this.beamPoolIdx = 0;
+    this.projPoolIdx = 0;
     const { player, map, enemies, messageLog, fov, enemyBleeds } = this.state;
 
     if (index >= player.classDef.abilities.length) return;

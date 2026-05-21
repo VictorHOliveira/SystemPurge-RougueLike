@@ -4,12 +4,12 @@ import { GameMap } from '../world/GameMap';
 export class FOVSystem {
   private fov: any;
   private radius: number;
-  private lightPasses: (x: number, y: number) => boolean = () => true;
+  private currentMap: GameMap | null = null;
 
   constructor(radius: number = 8) {
     this.radius = radius;
     this.fov = new FOV.PreciseShadowcasting(
-      (x: number, y: number) => this.lightPasses(x, y),
+      (x: number, y: number) => this.currentMap?.isTransparent(x, y) ?? true,
       { topology: 4 },
     );
   }
@@ -19,17 +19,7 @@ export class FOVSystem {
   }
 
   compute(map: GameMap, ox: number, oy: number): void {
-    this.lightPasses = (x: number, y: number) => map.isTransparent(x, y);
-
-    for (let y = -this.radius; y <= this.radius; y++) {
-      for (let x = -this.radius; x <= this.radius; x++) {
-        const tx = ox + x;
-        const ty = oy + y;
-        if (map.isInBounds(tx, ty)) {
-          map.visible[ty][tx] = false;
-        }
-      }
-    }
+    this.currentMap = map;
 
     this.fov.compute(ox, oy, this.radius, (x: number, y: number, _r: number, visibility: number) => {
       if (visibility > 0 && map.isInBounds(x, y)) {

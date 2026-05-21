@@ -11,7 +11,7 @@ export class RenderSystem {
   private miniMapDirty = true;
 
   tileRT!: Phaser.GameObjects.RenderTexture;
-  miniMap!: Phaser.GameObjects.Graphics;
+  private miniMapImg!: Phaser.GameObjects.Image;
   entitySprites = new Map<string, Phaser.GameObjects.Image>();
   enemyHpBars = new Map<string, Phaser.GameObjects.Graphics>();
   private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -67,9 +67,11 @@ export class RenderSystem {
     this.tileRT.setOrigin(0, 0);
     this.tileRT.setDepth(0);
 
-    this.miniMap = this.scene.add.graphics();
-    this.miniMap.setScrollFactor(0);
-    this.miniMap.setDepth(50);
+    const miniW = MAP_W * 2 + 2;
+    const miniH = MAP_H * 2 + 2;
+    if (this.scene.textures.exists('minimap')) this.scene.textures.remove('minimap');
+    this.scene.textures.createCanvas('minimap', miniW, miniH);
+    this.miniMapImg = this.scene.add.image(3, 555, 'minimap').setOrigin(0, 0).setScrollFactor(0).setDepth(50);
 
     const playerSpr = this.scene.add.image(0, 0, playerTextureKey);
     playerSpr.setOrigin(0.5, 0.5).setDepth(10);
@@ -98,7 +100,8 @@ export class RenderSystem {
     this.enemyHpBars.forEach(s => s.destroy());
     this.enemyHpBars.clear();
     if (this.tileRT) this.tileRT.destroy();
-    if (this.miniMap) this.miniMap.destroy();
+    if (this.miniMapImg) this.miniMapImg.destroy();
+    if (this.scene.textures.exists('minimap')) this.scene.textures.remove('minimap');
     if (this.particleEmitter) this.particleEmitter.destroy();
   }
 
@@ -130,6 +133,8 @@ export class RenderSystem {
 
     for (const [key, opened] of chests) {
       const [cx, cy] = key.split(',').map(Number);
+      if (!this.dirtyTiles[cy]?.[cx]) continue;
+      this.dirtyTiles[cy][cx] = false;
       if (!map.explored[cy]?.[cx]) continue;
       const vis = map.visible[cy]?.[cx] ?? false;
       const tex = opened
@@ -221,42 +226,46 @@ export class RenderSystem {
   }
 
   private drawMiniMap() {
-    this.miniMap.clear();
+    const canvas = this.scene.textures.get('minimap') as Phaser.Textures.CanvasTexture;
+    const ctx = canvas.context;
     const { map, player, enemies, chests } = this.state;
 
-    const mx = 4;
-    const my = 556;
     const s = 2;
     const w = MAP_W * s;
     const h = MAP_H * s;
 
-    this.miniMap.fillStyle(0x000000, 0.6);
-    this.miniMap.fillRect(mx - 1, my - 1, w + 2, h + 2);
-    this.miniMap.lineStyle(1, 0x334455);
-    this.miniMap.strokeRect(mx - 1, my - 1, w + 2, h + 2);
+    ctx.clearRect(0, 0, w + 2, h + 2);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(0, 0, w + 2, h + 2);
+    ctx.strokeStyle = '#334455';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, w + 1, h + 1);
 
     for (let y = 0; y < MAP_H; y++) {
       for (let x = 0; x < MAP_W; x++) {
         if (!map.explored[y][x]) continue;
         const vis = map.visible[y][x];
         const t = map.tiles[y][x];
+        const px = 1 + x * s;
+        const py = 1 + y * s;
 
         if (t === TileType.WALL) {
-          this.miniMap.fillStyle(vis ? 0x556677 : 0x2a3a4a);
+          ctx.fillStyle = vis ? '#556677' : '#2a3a4a';
         } else {
-          this.miniMap.fillStyle(vis ? 0x224466 : 0x141e2e);
+          ctx.fillStyle = vis ? '#224466' : '#141e2e';
         }
-        this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+        ctx.fillRect(px, py, s, s);
 
         if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
-          this.miniMap.fillStyle(t === TileType.STAIRS_DOWN ? 0x44ddbb : 0x88ddff);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+          ctx.fillStyle = t === TileType.STAIRS_DOWN ? '#44ddbb' : '#88ddff';
+          ctx.fillRect(px, py, s, s);
         } else if (t === TileType.TRAP) {
-          this.miniMap.fillStyle(0xff6644);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+          ctx.fillStyle = '#ff6644';
+          ctx.fillRect(px, py, s, s);
         } else if (t === TileType.ALTAR) {
-          this.miniMap.fillStyle(0xcc66ff);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+          ctx.fillStyle = '#cc66ff';
+          ctx.fillRect(px, py, s, s);
         }
       }
     }
@@ -264,18 +273,20 @@ export class RenderSystem {
     for (const [key, opened] of chests) {
       const [cx, cy] = key.split(',').map(Number);
       if (!opened && map.explored[cy]?.[cx]) {
-        this.miniMap.fillStyle(0xffd700);
-        this.miniMap.fillRect(mx + cx * s, my + cy * s, s, s);
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(1 + cx * s, 1 + cy * s, s, s);
       }
     }
 
     for (const e of enemies) {
       if (!e.isAlive || !map.visible[e.y]?.[e.x]) continue;
-      this.miniMap.fillStyle(0xff4444);
-      this.miniMap.fillRect(mx + e.x * s, my + e.y * s, s, s);
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(1 + e.x * s, 1 + e.y * s, s, s);
     }
 
-    this.miniMap.fillStyle(0x00ff88);
-    this.miniMap.fillRect(mx + player.x * s, my + player.y * s, s, s);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(1 + player.x * s, 1 + player.y * s, s, s);
+
+    canvas.refresh();
   }
 }

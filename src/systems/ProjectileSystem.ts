@@ -19,6 +19,7 @@ export class ProjectileSystem {
 
   private enemyGrid: (Enemy | null)[][] = [];
   private isDaemon: boolean = false;
+  private gridOccupied: { x: number; y: number }[] = [];
 
   private projPool: Phaser.GameObjects.Image[] = [];
   private projPoolIdx = 0;
@@ -48,11 +49,15 @@ export class ProjectileSystem {
   rebuildEnemyGrid() {
     const { enemies } = this.state;
     this.isDaemon = this.state.classId === 'daemon';
-    for (let y = 0; y < MAP_H; y++)
-      for (let x = 0; x < MAP_W; x++)
-        this.enemyGrid[y][x] = null;
+    for (const cell of this.gridOccupied) {
+      this.enemyGrid[cell.y][cell.x] = null;
+    }
+    this.gridOccupied.length = 0;
     for (const e of enemies) {
-      if (e.isAlive) this.enemyGrid[e.y][e.x] = e;
+      if (e.isAlive) {
+        this.enemyGrid[e.y][e.x] = e;
+        this.gridOccupied.push({ x: e.x, y: e.y });
+      }
     }
   }
 

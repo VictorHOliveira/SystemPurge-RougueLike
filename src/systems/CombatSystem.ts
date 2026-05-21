@@ -117,15 +117,17 @@ export class CombatSystem {
       }
     }
 
-    const upgradeRc = player.reflectChance;
-    const classRc = player.classDef.reflectPercent / 100;
-    const shieldRc = player.acquiredUpgrades.has('escudo_reativo') ? 0.15 : 0;
-    const totalRc = Math.max(upgradeRc, classRc, shieldRc);
-    if (isPlayerDef && totalRc > 0 && dealt > 0 && Math.random() < totalRc) {
-      const rdmg = attacker.takeDamage(2);
-      if (rdmg > 0) messageLog.add(`Dano refletido: ${rdmg} (${Math.round(totalRc * 100)}%).`);
-      if (!attacker.isAlive && attacker instanceof Enemy) {
-        this.callbacks.onEnemyDeath(attacker);
+    if (isPlayerDef) {
+      const upgradeRc = player.reflectChance;
+      const classRc = player.classDef.reflectPercent / 100;
+      const shieldRc = player.acquiredUpgrades.has('escudo_reativo') ? 0.15 : 0;
+      const totalRc = Math.max(upgradeRc, classRc, shieldRc);
+      if (totalRc > 0 && dealt > 0 && Math.random() < totalRc) {
+        const rdmg = attacker.takeDamage(2);
+        if (rdmg > 0) messageLog.add(`Dano refletido: ${rdmg} (${Math.round(totalRc * 100)}%).`);
+        if (!attacker.isAlive && attacker instanceof Enemy) {
+          this.callbacks.onEnemyDeath(attacker);
+        }
       }
     }
 

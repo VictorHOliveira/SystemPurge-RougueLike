@@ -40,7 +40,7 @@ export class GameScene extends Phaser.Scene {
   private lastBonusFov = -1; private lastCDR = -1; private lastBaseFov = -1;
   private lastBaseMs = -1; private lastCurMs = -1;
   private lastUpgrades = ''; private lastInventory = ''; private lastCooldowns = '';
-  private lastMessages: string[] = [];
+  private lastMessagesStr = '';
 
   init(data?: { classId?: string }) {
     if (data?.classId) this.classId = data.classId;
@@ -155,7 +155,8 @@ export class GameScene extends Phaser.Scene {
     if (p.classDef.moveSpeed !== this.lastBaseMs) { this.lastBaseMs = p.classDef.moveSpeed; this.registry.set('baseMoveSpeed', p.classDef.moveSpeed); }
     if (p.moveSpeed !== this.lastCurMs) { this.lastCurMs = p.moveSpeed; this.registry.set('currentMoveSpeed', p.moveSpeed); }
     const msgs = this.state.messageLog?.getLast(10) ?? [];
-    if (msgs !== this.lastMessages) { this.lastMessages = msgs; this.registry.set('messages', msgs); }
+    const msgsStr = msgs.join('\n');
+    if (msgsStr !== this.lastMessagesStr) { this.lastMessagesStr = msgsStr; this.registry.set('messages', msgs); }
     const upgStr = [...p.acquiredUpgrades.entries()].map(e => `${e[0]}:${e[1]}`).join(',');
     if (upgStr !== this.lastUpgrades) { this.lastUpgrades = upgStr; this.registry.set('upgrades', p.acquiredUpgrades); }
     const invStr = p.inventory.join(',');
@@ -306,6 +307,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.actionSystem.openChest(nx, ny);
+    this.renderSystem.markDirty(nx, ny);
 
     const spr = this.renderSystem.entitySprites.get('player');
     if (spr) {
@@ -418,6 +420,7 @@ export class GameScene extends Phaser.Scene {
 
     if (enemy.textureKey === 'enemy_miniboss' && this.state.minibossRoomIdx !== -1) {
       this.state.chests.set(`${enemy.x},${enemy.y}`, false);
+      this.renderSystem.markDirty(enemy.x, enemy.y);
       this.state.messageLog.add('Um baú de tesouro aparece!');
     }
 
