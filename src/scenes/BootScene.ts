@@ -23,7 +23,6 @@ export class BootScene extends Phaser.Scene {
     this.load.image('enemy_spyware', 'sprites/entities/enemy_spyware.png');
     this.load.image('enemy_boss', 'sprites/entities/enemy_boss.png');
     this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
-    this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
     this.load.image('class_limpador', 'sprites/classes/class_limpador.png');
     this.load.image('class_ping', 'sprites/classes/class_ping.png');
     this.load.image('class_muralha', 'sprites/classes/class_muralha.png');

@@ -6,6 +6,8 @@ import { TileType } from '../data/tiles';
 export class RenderSystem {
   private scene: Phaser.Scene;
   private state: GameState;
+  private dirtyTiles: boolean[][] = [];
+  private prevVisible: boolean[][] = [];
 
   tileRT!: Phaser.GameObjects.RenderTexture;
   miniMap!: Phaser.GameObjects.Graphics;
@@ -18,7 +20,45 @@ export class RenderSystem {
     this.state = state;
   }
 
+  private initDirtyGrid() {
+    this.dirtyTiles = [];
+    this.prevVisible = [];
+    for (let y = 0; y < MAP_H; y++) {
+      this.dirtyTiles[y] = [];
+      this.prevVisible[y] = [];
+      for (let x = 0; x < MAP_W; x++) {
+        this.dirtyTiles[y][x] = true;
+        this.prevVisible[y][x] = false;
+      }
+    }
+  }
+
+  markAllDirty() {
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++)
+        this.dirtyTiles[y][x] = true;
+  }
+
+  markDirty(x: number, y: number) {
+    if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H)
+      this.dirtyTiles[y][x] = true;
+  }
+
+  syncVisibility() {
+    const { map } = this.state;
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        if (map.explored[y][x] && map.visible[y][x] !== this.prevVisible[y][x]) {
+          this.dirtyTiles[y][x] = true;
+          this.prevVisible[y][x] = map.visible[y][x];
+        }
+      }
+    }
+  }
+
   createRenderObjects(playerTextureKey: string) {
+    this.initDirtyGrid();
+
     this.tileRT = this.scene.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE);
     this.tileRT.setOrigin(0, 0);
     this.tileRT.setDepth(0);
@@ -58,40 +98,29 @@ export class RenderSystem {
     if (this.particleEmitter) this.particleEmitter.destroy();
   }
 
+  private tileKey(type: TileType, isVisible: boolean): string {
+    switch (type) {
+      case TileType.WALL: return isVisible ? 'tile_wall' : 'tile_wall_dim';
+      case TileType.STAIRS_DOWN: return isVisible ? 'tile_stairs' : 'tile_stairs_dim';
+      case TileType.STAIRS_UP: return isVisible ? 'tile_stairs_up' : 'tile_stairs_up_dim';
+      case TileType.TRAP: return isVisible ? 'tile_trap' : 'tile_trap_dim';
+      case TileType.ALTAR: return isVisible ? 'tile_altar' : 'tile_altar_dim';
+      default: return isVisible ? 'tile_floor' : 'tile_floor_dim';
+    }
+  }
+
   redrawMap() {
-    this.tileRT.clear();
     const { map, chests } = this.state;
 
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
+        if (!this.dirtyTiles[y][x]) continue;
+        this.dirtyTiles[y][x] = false;
         if (!map.explored[y][x]) continue;
 
         const type = map.tiles[y][x];
         const isVisible = map.visible[y][x];
-
-        let key: string;
-        switch (type) {
-          case TileType.WALL:
-            key = isVisible ? 'tile_wall' : 'tile_wall_dim';
-            break;
-          case TileType.STAIRS_DOWN:
-            key = isVisible ? 'tile_stairs' : 'tile_stairs_dim';
-            break;
-          case TileType.STAIRS_UP:
-            key = isVisible ? 'tile_stairs_up' : 'tile_stairs_up_dim';
-            break;
-          case TileType.TRAP:
-            key = isVisible ? 'tile_trap' : 'tile_trap_dim';
-            break;
-          case TileType.ALTAR:
-            key = isVisible ? 'tile_altar' : 'tile_altar_dim';
-            break;
-          default:
-            key = isVisible ? 'tile_floor' : 'tile_floor_dim';
-            break;
-        }
-
-        this.tileRT.draw(key, x * TILE, y * TILE);
+        this.tileRT.draw(this.tileKey(type, isVisible), x * TILE, y * TILE);
       }
     }
 
@@ -154,6 +183,17 @@ export class RenderSystem {
     for (const [id, bar] of this.enemyHpBars) {
       if (!usedBars.has(id)) bar.setVisible(false);
     }
+
+    for (const enemy of enemies) {
+      if (!enemy.isAlive) this.removeEnemySprite(enemy.id);
+    }
+  }
+
+  removeEnemySprite(enemyId: string) {
+    const spr = this.entitySprites.get(enemyId);
+    if (spr) { spr.destroy(); this.entitySprites.delete(enemyId); }
+    const bar = this.enemyHpBars.get(enemyId);
+    if (bar) { bar.destroy(); this.enemyHpBars.delete(enemyId); }
   }
 
   centerOnPlayer() {
@@ -194,13 +234,25 @@ export class RenderSystem {
       for (let x = 0; x < MAP_W; x++) {
         if (!map.explored[y][x]) continue;
         const vis = map.visible[y][x];
-        const wall = map.tiles[y][x] === TileType.WALL;
-        if (wall) {
+        const t = map.tiles[y][x];
+
+        if (t === TileType.WALL) {
           this.miniMap.fillStyle(vis ? 0x556677 : 0x2a3a4a);
         } else {
           this.miniMap.fillStyle(vis ? 0x224466 : 0x141e2e);
         }
         this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+
+        if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
+          this.miniMap.fillStyle(t === TileType.STAIRS_DOWN ? 0x44ddbb : 0x88ddff);
+          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+        } else if (t === TileType.TRAP) {
+          this.miniMap.fillStyle(0xff6644);
+          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+        } else if (t === TileType.ALTAR) {
+          this.miniMap.fillStyle(0xcc66ff);
+          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
+        }
       }
     }
 
@@ -216,23 +268,6 @@ export class RenderSystem {
       if (!e.isAlive || !map.visible[e.y]?.[e.x]) continue;
       this.miniMap.fillStyle(0xff4444);
       this.miniMap.fillRect(mx + e.x * s, my + e.y * s, s, s);
-    }
-
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        if (!map.explored[y][x]) continue;
-        const t = map.tiles[y][x];
-        if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
-          this.miniMap.fillStyle(t === TileType.STAIRS_DOWN ? 0x44ddbb : 0x88ddff);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
-        } else if (t === TileType.TRAP) {
-          this.miniMap.fillStyle(0xff6644);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
-        } else if (t === TileType.ALTAR) {
-          this.miniMap.fillStyle(0xcc66ff);
-          this.miniMap.fillRect(mx + x * s, my + y * s, s, s);
-        }
-      }
     }
 
     this.miniMap.fillStyle(0x00ff88);

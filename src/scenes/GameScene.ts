@@ -30,6 +30,16 @@ export class GameScene extends Phaser.Scene {
 
   private classId: string = 'limpador';
 
+  private occGrid: Uint8Array = new Uint8Array(MAP_H * MAP_W);
+
+  private lastHp = -1; private lastMaxHp = -1; private lastLevel = -1;
+  private lastFloor = -1; private lastAtk = -1; private lastDef = -1;
+  private lastXp = -1; private lastXpNext = -1; private lastName = '';
+  private lastKills = -1; private lastBleedTicks = -1;
+  private lastDefBuff = -1; private lastTempAtk = -1; private lastTempDef = -1;
+  private lastBonusFov = -1; private lastCDR = -1; private lastBaseFov = -1;
+  private lastBaseMs = -1; private lastCurMs = -1;
+
   init(data?: { classId?: string }) {
     if (data?.classId) this.classId = data.classId;
   }
@@ -119,34 +129,39 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('HUD');
   }
 
+  private setIfChanged(key: string, value: any) {
+    if (this.registry.get(key) !== value) this.registry.set(key, value);
+  }
+
   update(_time: number, delta: number) {
     if (!this.state.player) return;
 
-    this.registry.set('hp', this.state.player.hp);
-    this.registry.set('maxHp', this.state.player.maxHp);
-    this.registry.set('level', this.state.player.level);
-    this.registry.set('floor', this.state.player.floor);
-    this.registry.set('attack', this.state.player.attack);
-    this.registry.set('defense', this.state.player.defense);
-    this.registry.set('xp', this.state.player.xp);
-    this.registry.set('xpNext', this.state.player.xpToNext);
-    this.registry.set('name', this.state.player.name);
-    this.registry.set('kills', this.state.kills);
+    const p = this.state.player;
+    if (p.hp !== this.lastHp) { this.lastHp = p.hp; this.registry.set('hp', p.hp); }
+    if (p.maxHp !== this.lastMaxHp) { this.lastMaxHp = p.maxHp; this.registry.set('maxHp', p.maxHp); }
+    if (p.level !== this.lastLevel) { this.lastLevel = p.level; this.registry.set('level', p.level); }
+    if (p.floor !== this.lastFloor) { this.lastFloor = p.floor; this.registry.set('floor', p.floor); }
+    if (p.attack !== this.lastAtk) { this.lastAtk = p.attack; this.registry.set('attack', p.attack); }
+    if (p.defense !== this.lastDef) { this.lastDef = p.defense; this.registry.set('defense', p.defense); }
+    if (p.xp !== this.lastXp) { this.lastXp = p.xp; this.registry.set('xp', p.xp); }
+    if (p.xpToNext !== this.lastXpNext) { this.lastXpNext = p.xpToNext; this.registry.set('xpNext', p.xpToNext); }
+    if (p.name !== this.lastName) { this.lastName = p.name; this.registry.set('name', p.name); }
+    if (this.state.kills !== this.lastKills) { this.lastKills = this.state.kills; this.registry.set('kills', this.state.kills); }
+    if (p.bleedTicks !== this.lastBleedTicks) { this.lastBleedTicks = p.bleedTicks; this.registry.set('bleedTicks', p.bleedTicks); }
+    if (p.defenseBuffRemaining !== this.lastDefBuff) { this.lastDefBuff = p.defenseBuffRemaining; this.registry.set('defenseBuff', p.defenseBuffRemaining); }
+    if (p.tempAtkBonus !== this.lastTempAtk) { this.lastTempAtk = p.tempAtkBonus; this.registry.set('tempAtkBonus', p.tempAtkBonus); }
+    if (p.tempDefBonus !== this.lastTempDef) { this.lastTempDef = p.tempDefBonus; this.registry.set('tempDefBonus', p.tempDefBonus); }
+    if (p.bonusFov !== this.lastBonusFov) { this.lastBonusFov = p.bonusFov; this.registry.set('bonusFov', p.bonusFov); }
+    if (p.cooldownReduction !== this.lastCDR) { this.lastCDR = p.cooldownReduction; this.registry.set('cooldownReduction', p.cooldownReduction); }
+    if (p.classDef.fov !== this.lastBaseFov) { this.lastBaseFov = p.classDef.fov; this.registry.set('baseFov', p.classDef.fov); }
+    if (p.classDef.moveSpeed !== this.lastBaseMs) { this.lastBaseMs = p.classDef.moveSpeed; this.registry.set('baseMoveSpeed', p.classDef.moveSpeed); }
+    if (p.moveSpeed !== this.lastCurMs) { this.lastCurMs = p.moveSpeed; this.registry.set('currentMoveSpeed', p.moveSpeed); }
     this.registry.set('messages', this.state.messageLog?.getLast(10) ?? []);
-    this.registry.set('upgrades', this.state.player.acquiredUpgrades);
-    this.registry.set('inventory', this.state.player.inventory);
+    this.registry.set('upgrades', p.acquiredUpgrades);
+    this.registry.set('inventory', p.inventory);
     this.registry.set('classId', this.classId);
-    this.registry.set('cooldowns', this.state.player.cooldowns);
-    this.registry.set('abilities', this.state.player.classDef.abilities);
-    this.registry.set('bleedTicks', this.state.player.bleedTicks);
-    this.registry.set('defenseBuff', this.state.player.defenseBuffRemaining);
-    this.registry.set('tempAtkBonus', this.state.player.tempAtkBonus);
-    this.registry.set('tempDefBonus', this.state.player.tempDefBonus);
-    this.registry.set('bonusFov', this.state.player.bonusFov);
-    this.registry.set('cooldownReduction', this.state.player.cooldownReduction);
-    this.registry.set('baseFov', this.state.player.classDef.fov);
-    this.registry.set('baseMoveSpeed', this.state.player.classDef.moveSpeed);
-    this.registry.set('currentMoveSpeed', this.state.player.moveSpeed);
+    this.registry.set('cooldowns', p.cooldowns);
+    this.registry.set('abilities', p.classDef.abilities);
 
     if (this.isAnimating) return;
     if (!this.state.turnSystem?.isPlayerTurn) return;
@@ -269,6 +284,7 @@ export class GameScene extends Phaser.Scene {
       this.renderSystem.spawnParticles(nx, ny, 0xff4444, 6);
       this.state.messageLog.add(`Armadilha de dados! -${dmg} HP`);
       this.state.map.setTile(nx, ny, TileType.FLOOR);
+      this.renderSystem.markDirty(nx, ny);
       if (!this.state.player.isAlive) return;
     }
 
@@ -284,6 +300,7 @@ export class GameScene extends Phaser.Scene {
         this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y);
       }
       this.state.map.setTile(nx, ny, TileType.FLOOR);
+      this.renderSystem.markDirty(nx, ny);
     }
 
     this.actionSystem.openChest(nx, ny);
@@ -313,6 +330,7 @@ export class GameScene extends Phaser.Scene {
     this.combatSystem.processClassPressure();
 
     this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y);
+    this.renderSystem.syncVisibility();
 
     this.combatSystem.processAdjacentAttacks();
 
@@ -324,6 +342,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.processEnemyAI();
+    this.projectileSystem.rebuildEnemyGrid();
 
     this.state.turnSystem.reset();
 
@@ -341,14 +360,14 @@ export class GameScene extends Phaser.Scene {
 
     this.combatSystem.processEnemyBleeds();
 
-    const occGrid: boolean[][] = Array.from({ length: MAP_H }, () => Array(MAP_W).fill(false));
+    this.occGrid.fill(0);
     for (const e of this.state.enemies) {
-      if (e.isAlive) occGrid[e.y][e.x] = true;
+      if (e.isAlive) this.occGrid[e.y * MAP_W + e.x] = 1;
     }
     for (const [key, opened] of this.state.chests) {
       if (!opened) {
         const [cx, cy] = key.split(',').map(Number);
-        occGrid[cy][cx] = true;
+        this.occGrid[cy * MAP_W + cx] = 1;
       }
     }
 
@@ -366,7 +385,7 @@ export class GameScene extends Phaser.Scene {
         (x, y) => this.state.map.isWalkable(x, y),
         (x, y) => {
           if (this.state.player.x === x && this.state.player.y === y && this.state.player.isAlive) return true;
-          if (occGrid[y]?.[x]) return true;
+          if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H && this.occGrid[y * MAP_W + x]) return true;
           return false;
         },
       );
@@ -384,6 +403,7 @@ export class GameScene extends Phaser.Scene {
 
   private handleEnemyDeath(enemy: Enemy) {
     this.state.kills++;
+    this.projectileSystem.rebuildEnemyGrid();
     const color = enemy.textureKey === 'enemy_boss' ? 0xffd700 : 0xff4444;
     this.renderSystem.spawnParticles(enemy.x, enemy.y, color, 8);
     sound.play('enemy_death');
@@ -414,7 +434,9 @@ export class GameScene extends Phaser.Scene {
     this.floorGenerator.generateFloor(forceNewPlayer);
     this.renderSystem.createRenderObjects(this.state.player.classDef.textureKey);
     this.renderSystem.createEnemySprites();
+    this.projectileSystem.rebuildEnemyGrid();
     this.renderSystem.redrawMap();
+    this.renderSystem.syncVisibility();
     this.renderSystem.syncEntitySprites();
     this.renderSystem.centerOnPlayer();
 

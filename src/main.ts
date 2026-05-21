@@ -11,7 +11,7 @@ const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   width: 1024,
   height: 640,
-  pixelArt: false,
+  pixelArt: true,
   roundPixels: true,
   backgroundColor: '#000000',
   scene: [BootScene, MainMenuScene, ClassSelectScene, GameScene, HUDScene, UpgradeScene, PauseScene],

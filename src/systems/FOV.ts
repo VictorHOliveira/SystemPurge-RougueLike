@@ -17,9 +17,13 @@ export class FOVSystem {
   compute(map: GameMap, ox: number, oy: number): void {
     this.lightPasses = (x: number, y: number) => map.isTransparent(x, y);
 
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
-        map.visible[y][x] = false;
+    for (let y = -this.radius; y <= this.radius; y++) {
+      for (let x = -this.radius; x <= this.radius; x++) {
+        const tx = ox + x;
+        const ty = oy + y;
+        if (map.isInBounds(tx, ty)) {
+          map.visible[ty][tx] = false;
+        }
       }
     }
 

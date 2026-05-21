@@ -15,10 +15,33 @@ export class CombatSystem {
   private state: GameState;
   private callbacks: CombatCallbacks;
 
+  private bleedTextPool: Phaser.GameObjects.Text[] = [];
+  private bleedPoolIdx = 0;
+
   constructor(scene: Phaser.Scene, state: GameState, callbacks: CombatCallbacks) {
     this.scene = scene;
     this.state = state;
     this.callbacks = callbacks;
+  }
+
+  private getBleedText(): Phaser.GameObjects.Text {
+    if (this.bleedPoolIdx < this.bleedTextPool.length) {
+      const t = this.bleedTextPool[this.bleedPoolIdx++];
+      this.scene.tweens.killTweensOf(t);
+      t.setVisible(true).setAlpha(1).setScale(1);
+      return t;
+    }
+    const t = this.scene.add.text(0, 0, '', {
+      fontFamily: 'Consolas', fontSize: '10px', color: '#66ff66',
+    }).setDepth(12);
+    this.bleedTextPool.push(t);
+    this.bleedPoolIdx++;
+    return t;
+  }
+
+  resetBleedPool() {
+    for (const t of this.bleedTextPool) t.setVisible(false);
+    this.bleedPoolIdx = 0;
   }
 
   meleeAttack(attacker: Entity, defender: Entity, isProjectile: boolean = false) {
@@ -148,6 +171,7 @@ export class CombatSystem {
 
   processEnemyBleeds() {
     const { enemies, messageLog, enemyBleeds } = this.state;
+    this.resetBleedPool();
     for (const [id, bleed] of enemyBleeds) {
       const enemy = enemies.find(e => e.id === id);
       if (!enemy || !enemy.isAlive) {
@@ -159,18 +183,17 @@ export class CombatSystem {
 
       const bits = ['0', '1'];
       for (let i = 0; i < 3; i++) {
-        const bit = this.scene.add.text(
+        const bit = this.getBleedText();
+        bit.setPosition(
           enemy.x * TILE + Phaser.Math.Between(4, 28),
           enemy.y * TILE + Phaser.Math.Between(0, 8),
-          bits[Math.floor(Math.random() * bits.length)],
-          { fontFamily: 'Consolas', fontSize: '10px', color: '#66ff66' },
-        ).setDepth(12);
+        );
+        bit.setText(bits[Math.floor(Math.random() * bits.length)]);
         this.scene.tweens.add({
           targets: bit,
           y: bit.y - Phaser.Math.Between(16, 32),
           alpha: 0,
           duration: 600,
-          onComplete: () => bit.destroy(),
         });
       }
 
