@@ -12,6 +12,7 @@ import { rollUpgrades } from '../data/upgrades';
 import { trackEvent } from '../analytics';
 import { sound } from '../audio/SoundManager';
 import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, isAdjacent } from '../constants';
+import { GameAction, MOVEMENT_ACTIONS, GAME_ACTIONS, loadBindings, keyNameFromEvent, type Bindings } from '../data/keybindings';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -23,10 +24,8 @@ export class GameScene extends Phaser.Scene {
 
   private isAnimating = false;
   private moveCooldown = 0;
-  private arrowUp!: Phaser.Input.Keyboard.Key;
-  private arrowDown!: Phaser.Input.Keyboard.Key;
-  private arrowLeft!: Phaser.Input.Keyboard.Key;
-  private arrowRight!: Phaser.Input.Keyboard.Key;
+  private keyObjects = new Map<string, Phaser.Input.Keyboard.Key>();
+  private keyToAction = new Map<string, GameAction>();
 
   private classId: string = 'limpador';
 
@@ -51,8 +50,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   private globalRestart = (e: KeyboardEvent) => {
-    if ((e.key === 'r' || e.key === 'R') && this.state?.player && !this.state.player.isAlive) {
-      window.location.reload();
+    const keyName = keyNameFromEvent(e);
+    if (keyName && this.state?.player && !this.state.player.isAlive) {
+      const b = loadBindings();
+      if (b.restart === keyName) window.location.reload();
     }
   };
 
@@ -61,7 +62,28 @@ export class GameScene extends Phaser.Scene {
       this.registry.set('restartPending', false);
       this.fullRestart();
     }
+    this.initBindings();
   };
+
+  private initBindings() {
+    this.keyToAction.clear();
+    this.keyObjects.forEach(k => k.destroy());
+    this.keyObjects.clear();
+
+    const b = loadBindings();
+
+    for (const action of MOVEMENT_ACTIONS) {
+      const keyName = b[action];
+      const keyCode = (Phaser.Input.Keyboard.KeyCodes as Record<string, number>)[keyName];
+      if (keyCode !== undefined) {
+        this.keyObjects.set(action, this.input.keyboard!.addKey(keyCode));
+      }
+    }
+
+    for (const action of GAME_ACTIONS) {
+      this.keyToAction.set(b[action], action);
+    }
+  }
 
   create() {
     this.state = {
@@ -108,16 +130,7 @@ export class GameScene extends Phaser.Scene {
 
     this.generateFloor();
 
-    const arrows = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT') as {
-      UP: Phaser.Input.Keyboard.Key;
-      DOWN: Phaser.Input.Keyboard.Key;
-      LEFT: Phaser.Input.Keyboard.Key;
-      RIGHT: Phaser.Input.Keyboard.Key;
-    };
-    this.arrowUp = arrows.UP;
-    this.arrowDown = arrows.DOWN;
-    this.arrowLeft = arrows.LEFT;
-    this.arrowRight = arrows.RIGHT;
+    this.initBindings();
     this.input.keyboard!.on('keydown', this.handleInput, this);
     window.addEventListener('keydown', this.globalRestart);
     this.events.on('resume', this.onResume, this);
@@ -126,6 +139,8 @@ export class GameScene extends Phaser.Scene {
       this.input?.keyboard?.off('keydown', this.handleInput, this);
       window.removeEventListener('keydown', this.globalRestart);
       this.events.off('resume', this.onResume, this);
+      this.keyObjects.forEach(k => k.destroy());
+      this.keyObjects.clear();
     });
 
     this.scene.launch('HUD');
@@ -172,10 +187,10 @@ export class GameScene extends Phaser.Scene {
 
     let dx = 0;
     let dy = 0;
-    if (this.arrowUp.isDown) dy -= 1;
-    if (this.arrowDown.isDown) dy += 1;
-    if (this.arrowLeft.isDown) dx -= 1;
-    if (this.arrowRight.isDown) dx += 1;
+    if (this.keyObjects.get('move_up')?.isDown) dy -= 1;
+    if (this.keyObjects.get('move_down')?.isDown) dy += 1;
+    if (this.keyObjects.get('move_left')?.isDown) dx -= 1;
+    if (this.keyObjects.get('move_right')?.isDown) dx += 1;
 
     if (dx === 0 && dy === 0) {
       this.moveCooldown = 0;
@@ -190,62 +205,70 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleInput = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      this.scene.pause();
-      this.scene.pause('HUD');
-      this.scene.launch('Pause');
-      return;
-    }
+    const keyName = keyNameFromEvent(e);
+    if (!keyName) return;
+    const action = this.keyToAction.get(keyName);
+    if (!action) return;
 
-    if (!this.state.player.isAlive) {
-      if (e.key === 'r' || e.key === 'R') window.location.reload();
-      return;
-    }
-
-    if (e.key === '.' || e.key === ' ') {
-      if (this.isAnimating) return;
-      if (!this.state.turnSystem?.isPlayerTurn) return;
-      e.preventDefault();
-      this.endTurn();
-    }
-
-    if (e.key === 'q' || e.key === 'Q') {
-      if (this.isAnimating) return;
-      if (!this.state.turnSystem?.isPlayerTurn) return;
-      this.actionSystem.useAbility(0);
-    }
-    if (e.key === 'e' || e.key === 'E') {
-      if (this.isAnimating) return;
-      if (!this.state.turnSystem?.isPlayerTurn) return;
-      this.actionSystem.useAbility(1);
-    }
-
-    if (this.state.player.classDef.canShoot) {
-      if (e.key === 'w' || e.key === 'W') {
+    switch (action) {
+      case 'pause':
+        this.scene.pause();
+        this.scene.pause('HUD');
+        this.scene.launch('Pause');
+        return;
+      case 'restart':
+        if (!this.state.player.isAlive) window.location.reload();
+        return;
+      case 'wait':
+        if (this.isAnimating) return;
+        if (!this.state.turnSystem?.isPlayerTurn) return;
+        e.preventDefault();
+        this.endTurn();
+        return;
+      case 'ability_0':
+        if (this.isAnimating) return;
+        if (!this.state.turnSystem?.isPlayerTurn) return;
+        this.actionSystem.useAbility(0);
+        return;
+      case 'ability_1':
+        if (this.isAnimating) return;
+        if (!this.state.turnSystem?.isPlayerTurn) return;
+        this.actionSystem.useAbility(1);
+        return;
+      case 'shoot_up':
+        if (!this.state.player.classDef.canShoot) return;
         if (this.isAnimating) return;
         if (!this.state.turnSystem?.isPlayerTurn) return;
         this.projectileSystem.fireProjectile(0, -1);
-      }
-      if (e.key === 's' || e.key === 'S') {
+        return;
+      case 'shoot_down':
+        if (!this.state.player.classDef.canShoot) return;
         if (this.isAnimating) return;
         if (!this.state.turnSystem?.isPlayerTurn) return;
         this.projectileSystem.fireProjectile(0, 1);
-      }
-      if (e.key === 'a' || e.key === 'A') {
+        return;
+      case 'shoot_left':
+        if (!this.state.player.classDef.canShoot) return;
         if (this.isAnimating) return;
         if (!this.state.turnSystem?.isPlayerTurn) return;
         this.projectileSystem.fireProjectile(-1, 0);
-      }
-      if (e.key === 'd' || e.key === 'D') {
+        return;
+      case 'shoot_right':
+        if (!this.state.player.classDef.canShoot) return;
         if (this.isAnimating) return;
         if (!this.state.turnSystem?.isPlayerTurn) return;
         this.projectileSystem.fireProjectile(1, 0);
-      }
+        return;
+      case 'item_0':
+        this.actionSystem.useItem(0);
+        return;
+      case 'item_1':
+        this.actionSystem.useItem(1);
+        return;
+      case 'item_2':
+        this.actionSystem.useItem(2);
+        return;
     }
-
-    if (e.key === '1') { this.actionSystem.useItem(0); return; }
-    if (e.key === '2') { this.actionSystem.useItem(1); return; }
-    if (e.key === '3') { this.actionSystem.useItem(2); return; }
   };
 
   private processMove(dx: number, dy: number) {

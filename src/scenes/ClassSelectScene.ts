@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CLASSES } from '../data/classes';
 import { sound } from '../audio/SoundManager';
+import { loadBindings, displayKey } from '../data/keybindings';
 
 export class ClassSelectScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -129,9 +130,10 @@ export class ClassSelectScene extends Phaser.Scene {
       });
     });
 
+    const b = loadBindings();
     c.abilities.forEach((a, i) => {
       const ay = y + h - 60 - (c.abilities.length - 1 - i) * 34;
-      const keyLabel = i === 0 ? 'Q' : 'E';
+      const keyLabel = displayKey(i === 0 ? b.ability_0 : b.ability_1);
       this.add.text(cx + 14, ay, `[${keyLabel}] ${a.name} (CD ${a.cooldown})`, {
         fontFamily: 'Consolas, "Courier New", monospace',
         fontSize: '9px',

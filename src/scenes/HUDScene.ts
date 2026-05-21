@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { ALL_ITEMS } from '../data/items';
 import { CLASSES } from '../data/classes';
+import { loadBindings, displayKey } from '../data/keybindings';
 
 const HUD_X = 648;
 const PANEL_W = 358;
@@ -310,6 +311,7 @@ export class HUDScene extends Phaser.Scene {
 
     const className = CLASS_NAMES[classId] ?? classId;
     const abilityCount = abilities.length;
+    const b = loadBindings();
 
     // ── Panel 1 — Status ──
     this.headerText.setText(name);
@@ -354,7 +356,7 @@ export class HUDScene extends Phaser.Scene {
         const a = abilities[i];
         const cd = cooldowns[i] ?? 0;
         const ready = cd === 0;
-        const key = i === 0 ? 'Q' : 'E';
+        const key = displayKey(i === 0 ? b.ability_0 : b.ability_1);
         const status = ready ? 'PRONTO' : `CD: ${cd}`;
         const pad = Math.max(1, 36 - a.name.length - status.length);
         this.abilTexts[i].setText(`[${key}] ${a.name}${' '.repeat(pad)}${status}`);
@@ -373,9 +375,11 @@ export class HUDScene extends Phaser.Scene {
     this.div1.lineBetween(HUD_X + 14, curY, RIGHT - 14, curY);
     curY += 6;
 
+    const itemKeys = [b.item_0, b.item_1, b.item_2];
     for (let i = 0; i < 3; i++) {
       const id = inventory[i];
-      const txt = id && ITEM_NAMES[id] ? `[${i + 1}] ${ITEM_NAMES[id]}` : `[${i + 1}] ---`;
+      const key = displayKey(itemKeys[i]);
+      const txt = id && ITEM_NAMES[id] ? `[${key}] ${ITEM_NAMES[id]}` : `[${key}] ---`;
       this.invTexts[i].setText(txt);
       this.invTexts[i].setY(curY);
       this.invTexts[i].setVisible(true);
@@ -440,5 +444,12 @@ export class HUDScene extends Phaser.Scene {
         this.messageTexts[i].setVisible(false);
       }
     }
+
+    const abil0 = displayKey(b.ability_0);
+    const abil1 = displayKey(b.ability_1);
+    const inv0 = displayKey(b.item_0);
+    const inv1 = displayKey(b.item_1);
+    const inv2 = displayKey(b.item_2);
+    this.footerText.setText(`System Purge v${version}    [${abil0}/${abil1}] Hab  [${inv0}-${inv1}-${inv2}] Usar`);
   }
 }

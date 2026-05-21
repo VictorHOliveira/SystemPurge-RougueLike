@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
+import { loadBindings, displayKey } from '../data/keybindings';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -156,14 +157,17 @@ export class MainMenuScene extends Phaser.Scene {
     d.lineBetween(310, 165, 714, 165);
     g.add(d);
 
+    const b = loadBindings();
+    const moveStr = `${displayKey(b.move_left)} ${displayKey(b.move_up)} ${displayKey(b.move_down)} ${displayKey(b.move_right)}`;
+    const shootStr = `${displayKey(b.shoot_left)}  ${displayKey(b.shoot_up)}  ${displayKey(b.shoot_down)}  ${displayKey(b.shoot_right)}`;
     const cmds = [
-      { key: '\u2190 \u2191 \u2193 \u2192', desc: 'Mover personagem' },
-      { key: 'W  A  S  D', desc: 'Atirar projetil' },
-      { key: 'Q', desc: 'Habilidade especial (classe)' },
-      { key: 'E', desc: '2a habilidade (Daemon)' },
-      { key: 'Espaco  /  .', desc: 'Aguardar um turno' },
-      { key: 'ESC', desc: 'Abrir menu de pausa' },
-      { key: 'R', desc: 'Reiniciar (quando morto)' },
+      { key: moveStr, desc: 'Mover personagem' },
+      { key: shootStr, desc: 'Atirar projetil' },
+      { key: displayKey(b.ability_0), desc: 'Habilidade especial (classe)' },
+      { key: displayKey(b.ability_1), desc: '2a habilidade (Daemon)' },
+      { key: displayKey(b.wait), desc: 'Aguardar um turno' },
+      { key: displayKey(b.pause), desc: 'Abrir menu de pausa' },
+      { key: displayKey(b.restart), desc: 'Reiniciar (quando morto)' },
     ];
 
     const style = {

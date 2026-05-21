@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { sound } from '../audio/SoundManager';
+import { loadBindings, displayKey } from '../data/keybindings';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -22,11 +23,11 @@ export class PauseScene extends Phaser.Scene {
 
     const panel = this.add.graphics();
     panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(280, 140, 400, 360, 6);
+    panel.fillRoundedRect(280, 120, 400, 410, 6);
     panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(280, 140, 400, 360, 6);
+    panel.strokeRoundedRect(280, 120, 400, 410, 6);
 
-    this.add.text(480, 180, 'PAUSADO', {
+    this.add.text(480, 155, 'PAUSADO', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '32px',
       color: '#00ff88',
@@ -35,20 +36,21 @@ export class PauseScene extends Phaser.Scene {
 
     const divider = this.add.graphics();
     divider.lineStyle(1, 0x2a4a3a);
-    divider.lineBetween(340, 212, 620, 212);
+    divider.lineBetween(340, 185, 620, 185);
 
     this.addButton(480, 250, '[ Continuar ]', '#44ddbb', () => this.resumeGame());
     this.addButton(480, 300, '[ Comandos ]', '#44aaff', () => this.showCommands());
-    this.addButton(480, 350, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
-    this.addButton(480, 400, '[ Menu Inicial ]', '#ffd700', () => this.goToMainMenu());
+    this.addButton(480, 350, '[ Controles ]', '#ffcc44', () => this.showControls());
+    this.addButton(480, 400, '[ Reiniciar ]', '#ff6644', () => this.restartGame());
+    this.addButton(480, 450, '[ Menu Inicial ]', '#ffd700', () => this.goToMainMenu());
 
-    this.add.text(480, 460, 'Setas para navegar | ENTER para selecionar', {
+    this.add.text(480, 490, 'Setas para navegar | ENTER para selecionar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
     }).setOrigin(0.5);
 
-    this.add.text(480, 478, 'ESC para continuar', {
+    this.add.text(480, 508, 'ESC para continuar', {
       fontFamily: 'Consolas, "Courier New", monospace',
       fontSize: '11px',
       color: '#445566',
@@ -84,6 +86,11 @@ export class PauseScene extends Phaser.Scene {
     }
   }
 
+  private showControls() {
+    this.scene.pause();
+    this.scene.launch('KeyBind');
+  }
+
   private showCommands() {
     this.inSubmenu = true;
     this.commandsGroup = this.add.group();
@@ -114,15 +121,19 @@ export class PauseScene extends Phaser.Scene {
     d.lineBetween(280, 152, 680, 152);
     g.add(d);
 
+    const b = loadBindings();
+    const moveStr = `${displayKey(b.move_left)} ${displayKey(b.move_up)} ${displayKey(b.move_down)} ${displayKey(b.move_right)}`;
+    const shootStr = `${displayKey(b.shoot_left)}  ${displayKey(b.shoot_up)}  ${displayKey(b.shoot_down)}  ${displayKey(b.shoot_right)}`;
+    const itemStr = `${displayKey(b.item_0)}  /  ${displayKey(b.item_1)}  /  ${displayKey(b.item_2)}`;
     const cmds = [
-      { key: '\u2190 \u2191 \u2193 \u2192', desc: 'Mover' },
-      { key: 'W  A  S  D', desc: 'Atirar proj\u00e9til (se classe permite)' },
-      { key: 'Q', desc: 'Habilidade especial da classe' },
-      { key: 'E', desc: '2\u00aa habilidade (Daemon)' },
-      { key: '1  /  2  /  3', desc: 'Usar item do invent\u00e1rio' },
-      { key: 'Space  /  .', desc: 'Aguardar um turno' },
-      { key: 'ESC', desc: 'Menu de pausa' },
-      { key: 'R', desc: 'Reiniciar (quando morto)' },
+      { key: moveStr, desc: 'Mover' },
+      { key: shootStr, desc: 'Atirar proj\u00e9til (se classe permite)' },
+      { key: displayKey(b.ability_0), desc: 'Habilidade especial da classe' },
+      { key: displayKey(b.ability_1), desc: '2\u00aa habilidade (Daemon)' },
+      { key: itemStr, desc: 'Usar item do invent\u00e1rio' },
+      { key: displayKey(b.wait), desc: 'Aguardar um turno' },
+      { key: displayKey(b.pause), desc: 'Menu de pausa' },
+      { key: displayKey(b.restart), desc: 'Reiniciar (quando morto)' },
     ];
 
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
