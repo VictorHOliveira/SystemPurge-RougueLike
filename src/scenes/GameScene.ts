@@ -8,11 +8,16 @@ import { ActionSystem } from '../systems/ActionSystem';
 import { FloorGenerator } from '../systems/FloorGenerator';
 import { GameState } from '../systems/GameState';
 import { TileType } from '../data/tiles';
+import { version } from '../../package.json';
 import { trackEvent } from '../analytics';
 import { sound } from '../audio/SoundManager';
 import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, isAdjacent, parseChestKey } from '../constants';
 import { InputHandler } from './GameInput';
 import { RegistryKeys } from '../RegistryKeys';
+import { META_UPGRADES } from '../data/metaUpgrades';
+import { loadMeta } from '../utils/metaSave';
+import { PURCHASABLE_ABILITIES } from '../data/purchasableAbilities';
+import { CLASSES } from '../data/classes';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -44,6 +49,8 @@ export class GameScene extends Phaser.Scene {
       this.fullRestart();
     }
     this.inputHandler.initBindings();
+    this.syncRegistry();
+    this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
   };
 
   create() {
@@ -58,9 +65,9 @@ export class GameScene extends Phaser.Scene {
       chests: new Map(),
       bossRoomIdx: -1,
       minibossRoomIdx: -1,
-      trapRoomIdx: -1,
       altarRoomIdx: -1,
       altarUsed: false,
+      bossKilled: false,
       classId: this.classId,
       enemyBleeds: new Map(),
     };
@@ -90,6 +97,8 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
 
     this.generateFloor();
+    this.applyMetaUpgrades();
+    this.loadActiveAbilities();
     this.syncRegistry();
 
     this.inputHandler = new InputHandler(this);
@@ -123,14 +132,16 @@ export class GameScene extends Phaser.Scene {
     this.combatSystem.processAdjacentAttacks();
 
     if (!this.state.player.isAlive) {
-      sound.play('player_death');
-      this.state.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
-      trackEvent('player_death', { floor: this.state.player.floor, level: this.state.player.level, kills: this.state.kills });
-      this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
+      this.handlePlayerDeath();
       return;
     }
 
     this.processEnemyAI();
+
+    if (!this.state.player.isAlive) {
+      this.handlePlayerDeath();
+      return;
+    }
     this.projectileSystem.rebuildEnemyGrid();
     this.combatSystem.rebuildEnemyMap();
 
@@ -143,6 +154,33 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.centerOnPlayer();
 
     this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
+  }
+
+  private handlePlayerDeath() {
+    sound.play('player_death');
+    this.renderSystem.spawnParticles(this.state.player.x, this.state.player.y, 0xff4444, 12);
+    this.state.messageLog.add('*** SISTEMA FALHOU ***');
+    trackEvent('player_death', { floor: this.state.player.floor, level: this.state.player.level, kills: this.state.kills });
+    this.syncRegistry();
+    this.renderSystem.syncEntitySprites();
+    this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
+    this.scene.pause();
+    this.scene.launch('GameOver', {
+      floor: this.state.player.floor,
+      level: this.state.player.level,
+      kills: this.state.kills,
+      name: this.state.player.name,
+      classId: this.state.classId,
+      bossKilled: this.state.bossKilled,
+    });
+  }
+
+  private enemyCanSeePlayer(enemy: Enemy): boolean {
+    if (this.state.map.visible[enemy.y]?.[enemy.x]) return true;
+    const dx = Math.abs(this.state.player.x - enemy.x);
+    const dy = Math.abs(this.state.player.y - enemy.y);
+    if (Math.max(dx, dy) <= 2) return true;
+    return false;
   }
 
   private processEnemyAI() {
@@ -164,9 +202,19 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.state.enemies) {
       if (!enemy.isAlive) continue;
       if (!this.state.player.isAlive) break;
-      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) continue;
+      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
+        if (enemy.behavior === 'suicide') {
+          this.combatSystem.suicideExplosion(enemy, this.state.player);
+          if (!this.state.player.isAlive) return;
+          this.handleEnemyDeath(enemy);
+          continue;
+        }
+        this.combatSystem.meleeAttack(enemy, this.state.player);
+        if (!this.state.player.isAlive) return;
+        continue;
+      }
 
-      const canSeePlayer = this.state.map.visible[enemy.y]?.[enemy.x] ?? false;
+      const canSeePlayer = this.enemyCanSeePlayer(enemy);
 
       enemy.takeTurn(
         this.state.player.x,
@@ -181,11 +229,21 @@ export class GameScene extends Phaser.Scene {
       );
 
       if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
+        if (enemy.behavior === 'suicide') {
+          this.combatSystem.suicideExplosion(enemy, this.state.player);
+          if (!this.state.player.isAlive) return;
+          this.handleEnemyDeath(enemy);
+          continue;
+        }
         this.combatSystem.meleeAttack(enemy, this.state.player);
-        if (!this.state.player.isAlive) {
-          this.state.messageLog.add('*** SISTEMA FALHOU — Pressione R para reiniciar ***');
-          trackEvent('player_death', { floor: this.state.player.floor, level: this.state.player.level, kills: this.state.kills });
-          return;
+        if (!this.state.player.isAlive) return;
+      } else if (enemy.behavior === 'ranged' && canSeePlayer && enemy.isAlive) {
+        const dx = this.state.player.x - enemy.x;
+        const dy = this.state.player.y - enemy.y;
+        const dist = Math.max(Math.abs(dx), Math.abs(dy));
+        if (dist >= 2 && dist <= 5) {
+          this.combatSystem.rangedAttack(enemy, this.state.player);
+          if (!this.state.player.isAlive) return;
         }
       }
     }
@@ -198,7 +256,13 @@ export class GameScene extends Phaser.Scene {
     sound.play('enemy_death');
     this.state.messageLog.add(`${enemy.name} foi neutralizado.`);
 
+    if (enemy.behavior === 'splitter') {
+      this.floorGenerator.spawnFragments(enemy.x, enemy.y);
+      this.renderSystem.syncEntitySprites();
+    }
+
     if (enemy.textureKey === 'enemy_boss' && this.state.bossRoomIdx !== -1) {
+      this.state.bossKilled = true;
       trackEvent('boss_kill', { floor: this.state.player.floor, level: this.state.player.level });
       this.actionSystem.showBossRewards();
     }
@@ -240,10 +304,18 @@ export class GameScene extends Phaser.Scene {
       }
       trackEvent('floor_reach', { floor: this.state.player.floor, level: this.state.player.level });
     } else {
-      this.state.messageLog.add('SYSTEM PURGE v0.1 — Kernel inicializado.');
+      this.state.messageLog.add(`SYSTEM PURGE v${version} — Kernel inicializado.`);
     }
 
     this.isAnimating = false;
+  }
+
+  private applyMetaUpgrades() {
+    const meta = loadMeta();
+    for (const def of META_UPGRADES) {
+      const lvl = meta.upgrades[def.id] ?? 0;
+      if (lvl > 0) def.apply(this.state.player, lvl);
+    }
   }
 
   private fullRestart() {
@@ -253,7 +325,29 @@ export class GameScene extends Phaser.Scene {
     this.state.kills = 0;
     this.state.chests.clear();
     this.state.altarUsed = false;
+    this.state.bossKilled = false;
     this.generateFloor(true);
+    this.applyMetaUpgrades();
+    this.loadActiveAbilities();
+  }
+
+  private loadActiveAbilities() {
+    const meta = loadMeta();
+    if (!meta.activeAbilities) return;
+    const p = this.state.player;
+    const originalClass = CLASSES.find(c => c.id === this.classId)!;
+    p.classDef = { ...originalClass, abilities: [...originalClass.abilities] };
+    p.cooldowns = p.classDef.abilities.map(() => 0);
+    const list = this.classId === 'daemon'
+      ? meta.activeAbilities.slice(0, 1)
+      : meta.activeAbilities;
+    for (const abilId of list) {
+      const purchAbil = PURCHASABLE_ABILITIES.find(a => a.id === abilId);
+      if (purchAbil) {
+        p.classDef.abilities.push(purchAbil);
+        p.cooldowns.push(0);
+      }
+    }
   }
 
   private syncRegistry() {
@@ -282,8 +376,10 @@ export class GameScene extends Phaser.Scene {
     this.registry.set(R.messages, msgs);
     this.registry.set(R.upgrades, p.acquiredUpgrades);
     this.registry.set(R.inventory, p.inventory);
+    this.registry.set(R.unlockedSlots, p.unlockedSlots);
     this.registry.set(R.classId, this.classId);
     this.registry.set(R.cooldowns, p.cooldowns);
     this.registry.set(R.abilities, p.classDef.abilities);
+    this.registry.set(R.hud, (this.registry.get(R.hud) as number ?? 0) + 1);
   }
 }

@@ -1,16 +1,16 @@
 export type GameAction =
   | 'move_up' | 'move_down' | 'move_left' | 'move_right'
-  | 'ability_0' | 'ability_1'
+  | 'ability_0' | 'ability_1' | 'ability_2'
   | 'shoot_up' | 'shoot_down' | 'shoot_left' | 'shoot_right'
-  | 'item_0' | 'item_1' | 'item_2'
+  | 'item_0' | 'item_1' | 'item_2' | 'item_3' | 'item_4' | 'item_5'
   | 'wait' | 'pause' | 'restart';
 
 export const GAME_ACTIONS: GameAction[] = [
   'move_up', 'move_down', 'move_left', 'move_right',
-  'ability_0', 'ability_1',
+  'ability_0', 'ability_1', 'ability_2',
   'shoot_up', 'shoot_down', 'shoot_left', 'shoot_right',
-  'item_0', 'item_1', 'item_2',
-  'wait', 'pause', 'restart',
+  'item_0', 'item_1', 'item_2', 'item_3', 'item_4', 'item_5',
+  'wait', 'pause',
 ];
 
 export const MOVEMENT_ACTIONS: GameAction[] = [
@@ -28,6 +28,7 @@ const DEFAULTS: Bindings = {
   move_right: 'RIGHT',
   ability_0: 'Q',
   ability_1: 'E',
+  ability_2: 'R',
   shoot_up: 'W',
   shoot_down: 'S',
   shoot_left: 'A',
@@ -35,6 +36,9 @@ const DEFAULTS: Bindings = {
   item_0: 'ONE',
   item_1: 'TWO',
   item_2: 'THREE',
+  item_3: 'FOUR',
+  item_4: 'FIVE',
+  item_5: 'SIX',
   wait: 'SPACE',
   pause: 'ESC',
   restart: 'R',
@@ -99,6 +103,7 @@ const ACTION_LABELS: Record<GameAction, string> = {
   move_right: 'Mover para direita',
   ability_0: 'Habilidade 1',
   ability_1: 'Habilidade 2',
+  ability_2: 'Habilidade 3',
   shoot_up: 'Atirar para cima',
   shoot_down: 'Atirar para baixo',
   shoot_left: 'Atirar para esquerda',
@@ -106,6 +111,9 @@ const ACTION_LABELS: Record<GameAction, string> = {
   item_0: 'Item 1',
   item_1: 'Item 2',
   item_2: 'Item 3',
+  item_3: 'Item 4',
+  item_4: 'Item 5',
+  item_5: 'Item 6',
   wait: 'Aguardar turno',
   pause: 'Pausar',
   restart: 'Reiniciar',

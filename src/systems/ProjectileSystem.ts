@@ -85,6 +85,8 @@ export class ProjectileSystem {
   }
 
   fireProjectile(dx: number, dy: number) {
+    this.projPoolIdx = 0;
+    for (const p of this.projPool) p.setVisible(false);
     const { map, player, messageLog } = this.state;
 
     const pierce = player.classDef.projectilesPierce;
@@ -127,7 +129,6 @@ export class ProjectileSystem {
           for (const enemy of enemiesHit) {
             this.callbacks.meleeAttack(player, enemy, true);
           }
-          if (enemiesHit.length === 0) messageLog.add('Projétil perfurante — nenhum alvo.');
           this.callbacks.onAnimationEnd();
         },
       });
@@ -154,8 +155,6 @@ export class ProjectileSystem {
         proj.setVisible(false);
         if (target.enemy) {
           this.callbacks.meleeAttack(player, target.enemy, true);
-        } else {
-          messageLog.add('Projétil acertou a parede.');
         }
         this.callbacks.onAnimationEnd();
       },

@@ -3,7 +3,7 @@ import { GameState } from './GameState';
 import type { FOVSystem } from './FOV';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
-import { TILE, isAdjacent, HEALTH_PATCH_HEAL, NETWORK_PULSE_DMG, AOE_DAMAGE, DOT_RANGE } from '../constants';
+import { TILE, isAdjacent, HEALTH_PATCH_HEAL, NETWORK_PULSE_DMG, AOE_DAMAGE, DOT_RANGE, BLEED_DAMAGE } from '../constants';
 import { ALL_UPGRADES, rollRewards, type Upgrade, type RewardOption } from '../data/upgrades';
 import { ALL_ITEMS, type ItemDef } from '../data/items';
 import { sound } from '../audio/SoundManager';
@@ -165,7 +165,22 @@ export class ActionSystem {
         this.doAoeDamage(ability, player, enemies, messageLog, enemyBleeds);
         break;
       case 'dot':
-        this.doDot(ability, player, enemies, messageLog);
+        this.doDot(ability, player, enemies, messageLog, enemyBleeds);
+        break;
+      case 'heal':
+        this.doHeal(ability, player, messageLog);
+        break;
+      case 'self_buff':
+        this.doSelfBuff(ability, player, messageLog);
+        break;
+      case 'shield':
+        this.doShield(ability, player, messageLog);
+        break;
+      case 'knockback':
+        this.doKnockback(ability, player, enemies, messageLog);
+        break;
+      case 'reflect_buff':
+        this.doReflectBuff(ability, player, messageLog);
         break;
     }
 
@@ -181,11 +196,27 @@ export class ActionSystem {
       const dmg = Math.max(1, player.effectiveAtk - defVal);
       e.takeDamage(dmg);
       hitCount++;
+      this.callbacks.spawnParticles(e.x, e.y, 0x00ff88, 5);
       messageLog.add(`${e.name} atingido por ${dmg}.`);
       sound.play('enemy_hit');
       if (!e.isAlive) this.callbacks.onEnemyDeath(e);
     }
     messageLog.add(`Varredura: ${hitCount} inimigo(s) atingido(s).`);
+
+    const ring = this.getRing();
+    ring.lineStyle(3, 0x00ff88, 0.8);
+    ring.strokeCircle(0, 0, TILE * 1.5);
+    ring.setPosition(player.x * TILE + TILE / 2, player.y * TILE + TILE / 2);
+    ring.setScale(0.2);
+    this.scene.tweens.add({
+      targets: ring,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 0,
+      duration: 250,
+      ease: 'Cubic.easeOut',
+      onComplete: () => { ring.clear(); ring.setVisible(false); },
+    });
   }
 
   private doProjectileBarrage(player: Player, enemies: Enemy[], messageLog: MessageLog) {
@@ -279,7 +310,7 @@ export class ActionSystem {
     });
   }
 
-  private doDot(ability: ClassAbility, player: Player, enemies: Enemy[], messageLog: MessageLog) {
+  private doDot(ability: ClassAbility, player: Player, enemies: Enemy[], messageLog: MessageLog, enemyBleeds: Map<string, { ticks: number; damage: number }>) {
     let target: Enemy | null = null;
     let bestDist = Infinity;
     for (const e of enemies) {
@@ -294,9 +325,13 @@ export class ActionSystem {
     }
     if (target) {
       const dmg = target.takeDamage(ability.damage ?? 10);
-      messageLog.add(`Vazamento: ${dmg} de dano.`);
+      messageLog.add(`${ability.name}: ${dmg} de dano.`);
       this.callbacks.spawnParticles(target.x, target.y, 0x66ff66, 4);
       sound.play('enemy_hit');
+      if (ability.duration && ability.duration > 0) {
+        enemyBleeds.set(target.id, { ticks: ability.duration, damage: BLEED_DAMAGE });
+        messageLog.add(`${target.name} sangrando (${BLEED_DAMAGE} por ${ability.duration} turnos).`);
+      }
       if (!target.isAlive) this.callbacks.onEnemyDeath(target);
       const beam = this.getBeam();
       beam.lineStyle(3, 0x66ff66, 0.7);
@@ -313,6 +348,52 @@ export class ActionSystem {
     } else {
       messageLog.add('Nenhum inimigo alcancavel.');
     }
+  }
+
+  private doHeal(ability: ClassAbility, player: Player, messageLog: MessageLog) {
+    const missing = player.maxHp - player.hp;
+    const healAmt = Math.max(1, Math.floor(missing * 0.5));
+    player.heal(healAmt);
+    messageLog.add(`Restaura\u00e7\u00e3o de Sistema: +${healAmt} HP.`);
+  }
+
+  private doSelfBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
+    player.tempAtkBonus = ability.damage ?? 5;
+    player.tempAtkRemaining = ability.duration ?? 4;
+    messageLog.add(`Sobrecarga de Kernel: ATQ +${player.tempAtkBonus} por ${player.tempAtkRemaining} turnos.`);
+  }
+
+  private doShield(ability: ClassAbility, player: Player, messageLog: MessageLog) {
+    player.shieldNextHit = true;
+    messageLog.add('Barreira de Protocolo: pr\u00f3ximo ataque ser\u00e1 absorvido.');
+  }
+
+  private doKnockback(ability: ClassAbility, player: Player, enemies: Enemy[], messageLog: MessageLog) {
+    let pushed = 0;
+    for (const e of enemies) {
+      if (!e.isAlive) continue;
+      if (!isAdjacent(player.x, player.y, e.x, e.y)) continue;
+      const dx = Math.sign(e.x - player.x);
+      const dy = Math.sign(e.y - player.y);
+      const nx = e.x + dx;
+      const ny = e.y + dy;
+      const map = this.state.map;
+      if (nx >= 0 && nx < map.width && ny >= 0 && ny < map.height && map.isWalkable(nx, ny)) {
+        const blocked = this.state.enemies.some(o => o !== e && o.isAlive && o.x === nx && o.y === ny);
+        if (!blocked) {
+          e.x = nx;
+          e.y = ny;
+          e.skipNextTurn = true;
+          pushed++;
+        }
+      }
+    }
+    messageLog.add(`Pulso de Emerg\u00eancia: ${pushed} inimigo(s) empurrado(s).`);
+  }
+
+  private doReflectBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
+    player.reflectBuffRemaining = ability.duration ?? 2;
+    messageLog.add(`Espelhamento: 100% de refletir dano por ${player.reflectBuffRemaining} turnos.`);
   }
 
   openChest(x: number, y: number) {

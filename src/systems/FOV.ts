@@ -25,6 +25,12 @@ export class FOVSystem {
   compute(map: GameMap, ox: number, oy: number): void {
     this.currentMap = map;
 
+    for (let y = 0; y < map.height; y++) {
+      for (let x = 0; x < map.width; x++) {
+        map.visible[y][x] = false;
+      }
+    }
+
     this.fov.compute(ox, oy, this.radius, (x: number, y: number, _r: number, visibility: number) => {
       if (visibility > 0 && map.isInBounds(x, y)) {
         map.visible[y][x] = true;

@@ -3,7 +3,7 @@ export interface ClassAbility {
   name: string;
   description: string;
   cooldown: number;          // turnos de cooldown
-  type: 'melee_aoe' | 'projectile_barrage' | 'defense_buff' | 'aoe_damage' | 'dot';
+  type: 'melee_aoe' | 'projectile_barrage' | 'defense_buff' | 'aoe_damage' | 'dot' | 'heal' | 'self_buff' | 'shield' | 'knockback' | 'reflect_buff';
   damage?: number;
   duration?: number;         // duração em turnos (buffs/dot)
 }

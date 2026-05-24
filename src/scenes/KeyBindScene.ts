@@ -16,6 +16,7 @@ export class KeyBindScene extends Phaser.Scene {
   private readyText?: Phaser.GameObjects.Text;
   private resetText!: Phaser.GameObjects.Text;
   private returnScene = 'Pause';
+  private mid = 0;
 
   constructor() {
     super('KeyBind');
@@ -37,9 +38,9 @@ export class KeyBindScene extends Phaser.Scene {
 
     const panel = this.add.graphics();
     panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(180, 30, 664, 580, 6);
+    panel.fillRoundedRect(120, 30, 784, 420, 6);
     panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(180, 30, 664, 580, 6);
+    panel.strokeRoundedRect(120, 30, 784, 420, 6);
 
     this.add.text(512, 55, 'CONTROLES', {
       fontFamily: FONT,
@@ -50,23 +51,31 @@ export class KeyBindScene extends Phaser.Scene {
 
     const d = this.add.graphics();
     d.lineStyle(1, 0x2a4a3a);
-    d.lineBetween(220, 80, 804, 80);
+    d.lineBetween(120, 80, 904, 80);
 
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
       fontFamily: FONT,
       fontSize: '13px',
     };
 
+    const mid = Math.ceil(GAME_ACTIONS.length / 2);
+    this.mid = mid;
+
     GAME_ACTIONS.forEach((action, i) => {
-      const rowY = 96 + i * 26;
-      const label = this.add.text(220, rowY, actionLabel(action), {
+      const col = i < mid ? 0 : 1;
+      const rowInCol = col === 0 ? i : i - mid;
+      const labelX = col === 0 ? 160 : 480;
+      const keyX = col === 0 ? 360 : 680;
+      const rowY = 96 + rowInCol * 26;
+
+      const label = this.add.text(labelX, rowY, actionLabel(action), {
         ...style, color: COLORS.logText,
       });
       const keyStr = this.bindings[action];
-      const keyT = this.add.text(560, rowY, displayKey(keyStr), {
+      const keyT = this.add.text(keyX, rowY, displayKey(keyStr), {
         ...style, color: COLORS.subtitle, fontStyle: 'bold',
       });
-      const spacer = this.add.text(580, rowY, '', style);
+      const spacer = this.add.text(keyX + 30, rowY, '', style);
 
       const isMove = MOVEMENT_ACTIONS.includes(action);
       if (isMove) {
@@ -88,7 +97,7 @@ export class KeyBindScene extends Phaser.Scene {
       this.actionTexts.push(label, keyT, spacer, row);
     });
 
-    this.resetText = this.add.text(512, 570, '[ Restaurar Padr\u00f5es ]', {
+    this.resetText = this.add.text(512, 410, '[ Restaurar Padr\u00f5es ]', {
       fontFamily: FONT,
       fontSize: '14px',
       color: COLORS.abilityCd,
@@ -146,6 +155,25 @@ export class KeyBindScene extends Phaser.Scene {
       return;
     }
 
+    if (e.key === 'ArrowLeft') {
+      if (this.selectedIndex >= this.mid) {
+        this.selectedIndex -= this.mid;
+        this.highlightSelectedRow();
+        sound.select();
+      }
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      if (this.selectedIndex < this.mid) {
+        const target = this.selectedIndex + this.mid;
+        if (target < GAME_ACTIONS.length) {
+          this.selectedIndex = target;
+          this.highlightSelectedRow();
+          sound.select();
+        }
+      }
+      return;
+    }
     if (e.key === 'ArrowUp') {
       this.selectedIndex = Math.max(0, this.selectedIndex - 1);
       this.highlight(this.selectedIndex);
@@ -180,7 +208,7 @@ export class KeyBindScene extends Phaser.Scene {
 
   private showReady(msg: string) {
     this.hideReady();
-    this.readyText = this.add.text(512, 540, msg, {
+    this.readyText = this.add.text(512, 385, msg, {
       fontFamily: FONT,
       fontSize: '13px',
       color: COLORS.warning,

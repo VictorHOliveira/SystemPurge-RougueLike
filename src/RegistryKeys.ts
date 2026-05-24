@@ -24,6 +24,7 @@ export const RegistryKeys = {
   classId: 'classId',
   cooldowns: 'cooldowns',
   abilities: 'abilities',
+  unlockedSlots: 'unlockedSlots',
   hud: '_hud',
   restartPending: 'restartPending',
 } as const;

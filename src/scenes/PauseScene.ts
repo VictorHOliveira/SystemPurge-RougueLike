@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { sound } from '../audio/SoundManager';
-import { FONT, COLORS, FONT_SIZES } from '../theme';
+import { FONT, COLORS } from '../theme';
+import { loadMeta } from '../utils/metaSave';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -14,43 +15,55 @@ export class PauseScene extends Phaser.Scene {
     this.selectedIndex = 0;
     this.buttons = [];
 
+    const player = this.getPlayer();
+
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.65);
-    overlay.fillRect(0, 0, 960, 640);
+    overlay.fillRect(0, 0, 1024, 640);
 
     const panel = this.add.graphics();
     panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(280, 140, 400, 360, 6);
+    panel.fillRoundedRect(120, 70, 784, 500, 6);
     panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(280, 140, 400, 360, 6);
+    panel.strokeRoundedRect(120, 70, 784, 500, 6);
 
-    this.add.text(480, 175, 'PAUSADO', {
+    const midDivider = this.add.graphics();
+    midDivider.lineStyle(1, 0x1a3a2a);
+    midDivider.lineBetween(512, 110, 512, 540);
+
+    this.add.text(320, 100, 'MENU', {
       fontFamily: FONT,
-      fontSize: '32px',
+      fontSize: '20px',
       color: COLORS.accent,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setShadow(0, 0, COLORS.accent, 10, false, true);
+    }).setOrigin(0.5);
 
-    const divider = this.add.graphics();
-    divider.lineStyle(1, 0x2a4a3a);
-    divider.lineBetween(340, 205, 620, 205);
+    this.add.text(724, 100, 'STATUS', {
+      fontFamily: FONT,
+      fontSize: '20px',
+      color: COLORS.accent,
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
 
-    this.addButton(480, 250, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
-    this.addButton(480, 310, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
-    this.addButton(480, 370, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
-    this.addButton(480, 430, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
+    const divTop = this.add.graphics();
+    divTop.lineStyle(1, 0x2a4a3a);
+    divTop.lineBetween(160, 120, 480, 120);
+    divTop.lineBetween(560, 120, 888, 120);
 
-    this.add.text(480, 480, 'Setas para navegar | ENTER para selecionar', {
+    this.addButton(320, 170, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
+    this.addButton(320, 230, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(320, 290, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(320, 350, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
+
+    this.add.text(320, 480, 'Setas | ENTER | ESC', {
       fontFamily: FONT,
       fontSize: '11px',
       color: COLORS.dimText,
     }).setOrigin(0.5);
 
-    this.add.text(480, 498, 'ESC para continuar', {
-      fontFamily: FONT,
-      fontSize: '11px',
-      color: COLORS.dimText,
-    }).setOrigin(0.5);
+    if (player) {
+      this.buildStatsPanel(player);
+    }
 
     this.highlight(0);
 
@@ -58,6 +71,89 @@ export class PauseScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this.input.keyboard?.off('keydown', this.handleKey, this);
     });
+  }
+
+  private getPlayer(): any {
+    try {
+      const game = this.scene.get('Game') as any;
+      return game?.state?.player ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildStatsPanel(player: any) {
+    const meta = loadMeta();
+    const metaHp = meta.upgrades.meta_hp ?? 0;
+    const metaAtk = meta.upgrades.meta_atk ?? 0;
+    const metaDef = meta.upgrades.meta_def ?? 0;
+    const metaFov = meta.upgrades.meta_fov ?? 0;
+    const metaInv = meta.upgrades.meta_inv ?? 0;
+
+    const lines: { label: string; value: string; color?: string }[] = [];
+
+    lines.push({ label: 'Classe:', value: player.classDef?.name ?? player.name, color: COLORS.gold });
+    lines.push({ label: 'Andar:', value: `/system/${player.floor}`, color: COLORS.subtitle });
+    lines.push({ label: 'Nível:', value: `${player.level}`, color: COLORS.accent });
+    lines.push({ label: 'XP:', value: `${player.xp} / ${player.xpToNext}`, color: COLORS.muted });
+
+    const usedSlots = player.inventory ? player.inventory.filter((s: any) => s !== null).length : 0;
+    const totalSlots = player.unlockedSlots ?? player.inventory?.length ?? 2;
+
+    const stats: { label: string; value: string; meta: string }[] = [
+      { label: 'HP', value: `${player.hp}/${player.maxHp}`, meta: metaHp > 0 ? `+${metaHp * 5}` : '' },
+      { label: 'ATK', value: `${player.effectiveAtk ?? player.attack}`, meta: metaAtk > 0 ? `+${metaAtk * 2}` : '' },
+      { label: 'DEF', value: `${player.effectiveDef ?? player.defense}`, meta: metaDef > 0 ? `+${metaDef}` : '' },
+      { label: 'FOV', value: `${player.effectiveFov}`, meta: metaFov > 0 ? `+${metaFov}` : '' },
+      { label: 'INV', value: `${usedSlots}/${totalSlots}`, meta: metaInv > 0 ? `+${metaInv}` : '' },
+      { label: 'VEL', value: `${player.effectiveMoveSpeed ?? player.moveSpeed}`, meta: '' },
+    ];
+
+    const lineH = 18;
+    let yy = 145;
+
+    for (const line of lines) {
+      const label = this.add.text(560, yy, line.label, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: COLORS.dimText,
+        fontStyle: 'bold',
+      });
+      const value = this.add.text(640, yy, line.value, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: line.color ?? COLORS.lightText,
+      });
+      yy += lineH;
+    }
+
+    yy += 8;
+    const divStats = this.add.graphics();
+    divStats.lineStyle(1, 0x1a3a2a);
+    const divY = yy - 4;
+    divStats.lineBetween(560, divY, 904, divY);
+
+    for (const st of stats) {
+      const label = this.add.text(560, yy, st.label, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: COLORS.dimText,
+        fontStyle: 'bold',
+      });
+      const value = this.add.text(610, yy, st.value, {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: COLORS.lightText,
+      });
+      if (st.meta) {
+        this.add.text(700, yy, `[${st.meta}]`, {
+          fontFamily: FONT,
+          fontSize: '11px',
+          color: COLORS.gold,
+        });
+      }
+      yy += lineH;
+    }
   }
 
   private handleKey(e: KeyboardEvent) {

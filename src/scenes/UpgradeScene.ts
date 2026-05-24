@@ -74,7 +74,7 @@ export class UpgradeScene extends Phaser.Scene {
 
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.75);
-    overlay.fillRect(0, 0, 960, 640);
+    overlay.fillRect(0, 0, 1024, 640);
 
     const titleText = (this.scene.settings.data as Record<string, unknown>)?.title as string | undefined;
     const title = titleText ?? (this.mode === 'reveal' ? 'BAU DE RECOMPENSA' : 'RECOMPENSA DO SISTEMA');

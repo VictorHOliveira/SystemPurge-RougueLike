@@ -68,6 +68,13 @@ export class CombatSystem {
       return;
     }
 
+    if (isPlayerDef && player.shieldNextHit) {
+      player.shieldNextHit = false;
+      messageLog.add('Barreira de Protocolo absorveu o ataque!');
+      this.callbacks.spawnParticles(player.x, player.y, 0x44ddff, 6);
+      return;
+    }
+
     const dmg = this.calcDamage(attacker, defender, isPlayerAtk, isPlayerDef, isProjectile);
     if (dmg <= 0) return;
 
@@ -76,6 +83,7 @@ export class CombatSystem {
     messageLog.add(`${attacker.name} acerta ${defender.name} com ${dealt} de dano.`);
 
     if (isPlayerAtk && dealt > 0 && defender instanceof Enemy) {
+      this.callbacks.spawnParticles(defender.x, defender.y, 0x00ff88, 4);
       this.applyLifeSteal(player, messageLog);
       this.applyBleed(player, defender, enemyBleeds, messageLog);
     }
@@ -101,14 +109,13 @@ export class CombatSystem {
 
   private calcDamage(attacker: Entity, defender: Entity, isPlayerAtk: boolean, isPlayerDef: boolean, isProjectile: boolean): number {
     const { player } = this.state;
+
+    if (isPlayerAtk && !isProjectile && !player.classDef.canMelee) return 0;
+
     let atkVal = isPlayerAtk ? player.effectiveAtk : attacker.attack;
     let defVal = isPlayerDef ? player.effectiveDef : defender.defense;
 
-    if (isPlayerAtk) {
-      const cd = player.classDef;
-      if (cd.ignoreDefense) defVal = 0;
-      if (!cd.canMelee && !isProjectile) atkVal = 0;
-    }
+    if (isPlayerAtk && player.classDef.ignoreDefense) defVal = 0;
 
     let dmg = Math.max(1, atkVal - defVal);
 
@@ -123,10 +130,6 @@ export class CombatSystem {
     }
 
     dmg = Math.max(0, dmg);
-
-    if (isPlayerAtk && !isProjectile && !player.classDef.canMelee) {
-      dmg = 0;
-    }
 
     if (isPlayerDef && player.hasEncryption) {
       dmg = Math.max(0, dmg - ENCRYPTION_REDUCTION);
@@ -153,6 +156,14 @@ export class CombatSystem {
   }
 
   private applyReflect(attacker: Entity, player: Player, dealt: number, messageLog: MessageLog) {
+    if (player.reflectBuffRemaining > 0 && dealt > 0) {
+      const rdmg = attacker.takeDamage(dealt);
+      if (rdmg > 0) messageLog.add(`Espelhamento refletiu ${rdmg} de dano!`);
+      if (!attacker.isAlive && attacker instanceof Enemy) {
+        this.callbacks.onEnemyDeath(attacker);
+      }
+      return;
+    }
     const upgradeRc = player.reflectChance;
     const classRc = player.classDef.reflectPercent / 100;
     const shieldRc = player.acquiredUpgrades.has('escudo_reativo') ? 0.15 : 0;
@@ -189,6 +200,25 @@ export class CombatSystem {
         this.meleeAttack(enemy, player);
       }
     }
+  }
+
+  suicideExplosion(enemy: Enemy, player: Player) {
+    const dmg = Math.max(3, enemy.attack * 2);
+    const dealt = player.takeDamage(dmg);
+    this.state.messageLog.add(`${enemy.name} EXPLODE causando ${dealt} de dano!`);
+    sound.play('player_hit');
+    this.callbacks.spawnParticles(enemy.x, enemy.y, 0xff2200, 12);
+    enemy.hp = 0;
+    if (!player.isAlive) this.state.messageLog.add(`${player.classDef.name} foi derrubado.`);
+  }
+
+  rangedAttack(enemy: Enemy, player: Player) {
+    const dmg = Math.max(1, enemy.attack - player.effectiveDef);
+    const dealt = player.takeDamage(dmg);
+    this.state.messageLog.add(`${enemy.name} dispara em ${player.classDef.name}: ${dealt} de dano.`);
+    sound.play('player_hit');
+    this.callbacks.spawnParticles(player.x, player.y, 0xff8800, 5);
+    if (!player.isAlive) this.state.messageLog.add(`${player.classDef.name} foi derrubado.`);
   }
 
   processClassPressure() {

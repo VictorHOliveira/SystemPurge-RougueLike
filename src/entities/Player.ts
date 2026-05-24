@@ -9,8 +9,9 @@ export class Player extends Entity {
 
   classDef: PlayerClass;
 
+  unlockedSlots: number = 2;
   acquiredUpgrades: Map<string, number> = new Map();
-  inventory: (string | null)[] = [null, null, null];
+  inventory: (string | null)[] = [];
   tempAtkBonus: number = 0;
   tempAtkRemaining: number = 0;
   tempDefBonus: number = 0;
@@ -30,6 +31,8 @@ export class Player extends Entity {
   hasUsedAbility: boolean = false;
   extraBleedDamage: number = 0;
   overflowRange: number = 2;
+  shieldNextHit: boolean = false;
+  reflectBuffRemaining: number = 0;
 
   constructor(classDef: PlayerClass, x: number, y: number) {
     super('player', classDef.name, x, y, classDef.hp, classDef.attack, classDef.defense, classDef.textureKey);
@@ -40,27 +43,36 @@ export class Player extends Entity {
     this.floor = 1;
     this.moveSpeed = classDef.moveSpeed;
     this.cooldowns = classDef.abilities.map(() => 0);
+    this.inventory = [null, null, null, null, null, null];
   }
 
   freeSlots(): number {
-    return this.inventory.filter(s => s === null).length;
+    let count = 0;
+    for (let i = 0; i < this.unlockedSlots; i++) {
+      if (this.inventory[i] === null) count++;
+    }
+    return count;
   }
 
   addItem(id: string): boolean {
-    const idx = this.inventory.indexOf(null);
-    if (idx === -1) return false;
-    this.inventory[idx] = id;
-    return true;
+    for (let i = 0; i < this.unlockedSlots; i++) {
+      if (this.inventory[i] === null) {
+        this.inventory[i] = id;
+        return true;
+      }
+    }
+    return false;
   }
 
   removeItem(slot: number): string | null {
+    if (slot < 0 || slot >= this.unlockedSlots) return null;
     const id = this.inventory[slot];
     this.inventory[slot] = null;
     return id;
   }
 
   getItem(slot: number): string | null {
-    if (slot < 0 || slot >= 3) return null;
+    if (slot < 0 || slot >= this.unlockedSlots) return null;
     return this.inventory[slot];
   }
 
@@ -138,11 +150,12 @@ export class Player extends Entity {
 
   addXp(amount: number): boolean {
     this.xp += amount;
-    if (this.xp >= this.xpToNext) {
+    let leveled = false;
+    while (this.xp >= this.xpToNext) {
       this.levelUp();
-      return true;
+      leveled = true;
     }
-    return false;
+    return leveled;
   }
 
   levelUp(): void {
@@ -172,6 +185,9 @@ export class Player extends Entity {
     }
     if (this.defenseBuffRemaining > 0) {
       this.defenseBuffRemaining--;
+    }
+    if (this.reflectBuffRemaining > 0) {
+      this.reflectBuffRemaining--;
     }
 
     this.hasUsedAbility = false;

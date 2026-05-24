@@ -19,12 +19,10 @@ export class InputHandler {
     if (!this.game.input.keyboard) return;
     this.initBindings();
     this.game.input.keyboard.on('keydown', this.handleInput, this);
-    window.addEventListener('keydown', this.globalRestart);
   }
 
   destroy() {
     this.game.input?.keyboard?.off('keydown', this.handleInput, this);
-    window.removeEventListener('keydown', this.globalRestart);
     this.keyObjects.forEach(k => k.destroy());
     this.keyObjects.clear();
   }
@@ -129,11 +127,12 @@ export class InputHandler {
   private handleTrap(nx: number, ny: number) {
     const s = this.game.state;
     if (s.map.tiles[ny][nx] !== TileType.TRAP) return;
-    const dmg = Phaser.Math.Between(TRAP_DMG_MIN, TRAP_DMG_MAX);
+    const floor = s.player.floor;
+    const dmg = Phaser.Math.Between(TRAP_DMG_MIN + Math.floor(floor / 3), TRAP_DMG_MAX + Math.floor(floor / 2));
     s.player.takeDamage(dmg);
     this.game.renderSystem.spawnParticles(nx, ny, 0xff4444, 6);
     s.messageLog.add(`Armadilha de dados! -${dmg} HP`);
-    s.map.setTile(nx, ny, TileType.FLOOR);
+    s.map.setTile(nx, ny, TileType.BURNED);
     this.game.renderSystem.markDirty(nx, ny);
   }
 
@@ -175,14 +174,6 @@ export class InputHandler {
     }
   }
 
-  private globalRestart = (e: KeyboardEvent) => {
-    const keyName = keyNameFromEvent(e);
-    if (keyName && this.game.state?.player && !this.game.state.player.isAlive) {
-      const b = loadBindings();
-      if (b.restart === keyName) window.location.reload();
-    }
-  };
-
   private handleInput = (e: KeyboardEvent) => {
     const keyName = keyNameFromEvent(e);
     if (!keyName) return;
@@ -194,9 +185,6 @@ export class InputHandler {
         this.game.scene.pause();
         this.game.scene.pause('HUD');
         this.game.scene.launch('Pause');
-        return;
-      case 'restart':
-        if (!this.game.state.player.isAlive) window.location.reload();
         return;
       case 'wait':
         if (this.game.isAnimating) return;
@@ -213,6 +201,11 @@ export class InputHandler {
         if (this.game.isAnimating) return;
         if (!this.game.state.turnSystem?.isPlayerTurn) return;
         this.game.actionSystem.useAbility(1);
+        return;
+      case 'ability_2':
+        if (this.game.isAnimating) return;
+        if (!this.game.state.turnSystem?.isPlayerTurn) return;
+        this.game.actionSystem.useAbility(2);
         return;
       case 'shoot_up':
         if (!this.game.state.player.classDef.canShoot) return;
@@ -246,6 +239,15 @@ export class InputHandler {
         return;
       case 'item_2':
         this.game.actionSystem.useItem(2);
+        return;
+      case 'item_3':
+        this.game.actionSystem.useItem(3);
+        return;
+      case 'item_4':
+        this.game.actionSystem.useItem(4);
+        return;
+      case 'item_5':
+        this.game.actionSystem.useItem(5);
         return;
     }
   };

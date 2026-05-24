@@ -16,9 +16,9 @@ export interface GameState {
   chests: Map<string, boolean>;
   bossRoomIdx: number;
   minibossRoomIdx: number;
-  trapRoomIdx: number;
   altarRoomIdx: number;
   altarUsed: boolean;
+  bossKilled: boolean;
   classId: string;
   enemyBleeds: Map<string, { ticks: number; damage: number }>;
 }

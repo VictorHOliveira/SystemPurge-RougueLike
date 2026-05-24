@@ -2,12 +2,18 @@ import Phaser from 'phaser';
 import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
+import { loadMeta, saveMeta, defaultMeta } from '../utils/metaSave';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
   private buttons: { text: Phaser.GameObjects.Text; color: string; cb: () => void }[] = [];
   private submenuGroup?: Phaser.GameObjects.Group;
   private inSubmenu = false;
+  private submenuState: 'about' | 'resetConfirm' = 'about';
+  private resetChoice = 0;
+  private cheatBuffer = '';
+  private bitsText?: Phaser.GameObjects.Text;
+  private submenuDynamic: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('MainMenu');
@@ -86,11 +92,19 @@ export class MainMenuScene extends Phaser.Scene {
     div.lineStyle(1, 0x2a4a3a);
     div.lineBetween(256, 165, 768, 165);
 
-    this.addButton(512, 240, '[ INICIAR ]', COLORS.accent, () => this.startGame());
-    this.addButton(512, 300, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
-    this.addButton(512, 360, '[ SOBRE ]', COLORS.gold, () => this.showAbout());
+    this.addButton(512, 220, '[ INICIAR ]', COLORS.accent, () => this.startGame());
+    this.addButton(512, 275, '[ LOJA ]', COLORS.gold, () => this.openShop());
+    this.addButton(512, 330, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(512, 385, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
 
-    this.add.text(512, 460, 'SETAS para navegar | ENTER para selecionar', {
+    const meta = loadMeta();
+    this.bitsText = this.add.text(512, 440, `Bits: ${meta.bits}`, {
+      fontFamily: FONT,
+      fontSize: '14px',
+      color: COLORS.accent,
+    }).setOrigin(0.5);
+
+    this.add.text(512, 470, 'SETAS para navegar | ENTER para selecionar', {
       fontFamily: FONT,
       fontSize: '11px',
       color: COLORS.dimText,
@@ -107,7 +121,41 @@ export class MainMenuScene extends Phaser.Scene {
   private handleInput(e: KeyboardEvent) {
     sound.resumeContext();
     if (this.inSubmenu) {
+      if (this.submenuState === 'resetConfirm') {
+        if (e.key === 'Escape') { this.hideResetConfirm(); return; }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          this.resetChoice = this.resetChoice === 0 ? 1 : 0;
+          this.updateResetHighlight();
+          sound.select();
+          return;
+        }
+        if (e.key === 'Enter') {
+          sound.confirm();
+          if (this.resetChoice === 0) this.executeReset();
+          else this.hideResetConfirm();
+          return;
+        }
+        return;
+      }
       if (e.key === 'Escape') { this.hideSubmenu(); return; }
+      if (e.key === 'Enter') {
+        this.executeCheat(this.cheatBuffer);
+        this.cheatBuffer = '';
+        this.updateCheatDisplay();
+        return;
+      }
+      if (e.key === 'Backspace') {
+        this.cheatBuffer = this.cheatBuffer.slice(0, -1);
+        this.updateCheatDisplay();
+        this.clearCheatFeedback();
+        return;
+      }
+      if (e.key.length === 1) {
+        this.cheatBuffer += e.key;
+        this.updateCheatDisplay();
+        this.clearCheatFeedback();
+        return;
+      }
       return;
     }
     if (e.key === 'ArrowUp') {
@@ -133,6 +181,10 @@ export class MainMenuScene extends Phaser.Scene {
 
   private showAbout() {
     this.inSubmenu = true;
+    this.submenuState = 'about';
+    this.cheatBuffer = '';
+    this.submenuDynamic.forEach(obj => obj.destroy());
+    this.submenuDynamic = [];
     this.submenuGroup = this.add.group();
     const g = this.submenuGroup;
 
@@ -143,9 +195,9 @@ export class MainMenuScene extends Phaser.Scene {
 
     const panel = this.add.graphics();
     panel.fillStyle(0x0a1a18);
-    panel.fillRoundedRect(270, 130, 484, 380, 6);
+    panel.fillRoundedRect(270, 130, 484, 430, 6);
     panel.lineStyle(2, 0x2a4a3a);
-    panel.strokeRoundedRect(270, 130, 484, 380, 6);
+    panel.strokeRoundedRect(270, 130, 484, 430, 6);
     g.add(panel);
 
     const title = this.add.text(512, 170, 'SOBRE', {
@@ -183,17 +235,195 @@ export class MainMenuScene extends Phaser.Scene {
       g.add(t);
     });
 
-    this.add.text(512, 440, 'ESC para voltar', {
+    const rd = this.add.graphics();
+    rd.lineStyle(1, 0x2a4a3a);
+    rd.lineBetween(310, 435, 714, 435);
+    g.add(rd);
+    this.submenuDynamic.push(rd);
+
+    const eh = this.add.text(512, 450, 'ESC para voltar', {
       fontFamily: FONT,
       fontSize: '12px',
       color: COLORS.dimText,
     }).setOrigin(0.5);
+    g.add(eh);
+    this.submenuDynamic.push(eh);
+
+    const rb = this.add.text(512, 475, '[ RESETAR DADOS ]', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.error,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    rb.on('pointerdown', () => this.showResetConfirm());
+    g.add(rb);
+    this.submenuDynamic.push(rb);
+
+    const cheatTitle = this.add.text(512, 498, '\u203a CHEAT CODES', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.lightText,
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    g.add(cheatTitle);
+    this.submenuDynamic.push(cheatTitle);
+
+    const cd = this.add.text(512, 516, '> ', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.accent,
+    }).setOrigin(0.5);
+    g.add(cd);
+    this.submenuDynamic.push(cd);
+
+    const cf = this.add.text(512, 534, '', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.gold,
+    }).setOrigin(0.5);
+    g.add(cf);
+    this.submenuDynamic.push(cf);
+
+    this.data.set('cheatDisplay', cd);
+    this.data.set('cheatFeedback', cf);
+  }
+
+  private updateCheatDisplay() {
+    const cd = this.data.get('cheatDisplay') as Phaser.GameObjects.Text | undefined;
+    if (!cd) return;
+    cd.setText(this.cheatBuffer.length > 0 ? '> ' + this.cheatBuffer : '> ');
+  }
+
+  private clearCheatFeedback() {
+    const cf = this.data.get('cheatFeedback') as Phaser.GameObjects.Text | undefined;
+    if (cf) cf.setText('');
+  }
+
+  private executeCheat(input: string) {
+    const cf = this.data.get('cheatFeedback') as Phaser.GameObjects.Text | undefined;
+    if (!cf) return;
+    if (input.trim().toLowerCase() === 'i love you') {
+      const meta = loadMeta();
+      meta.bits += 1000;
+      saveMeta(meta);
+      cf.setColor(COLORS.gold);
+      cf.setText('1000 Bits adicionados!');
+      if (this.bitsText) this.bitsText.setText(`Bits: ${meta.bits}`);
+    } else {
+      cf.setColor(COLORS.error);
+      cf.setText('\u2717 Comando inv\u00e1lido');
+    }
   }
 
   private hideSubmenu() {
     this.inSubmenu = false;
     this.submenuGroup?.destroy(true);
     this.submenuGroup = undefined;
+    this.submenuDynamic = [];
+  }
+
+  private showResetConfirm() {
+    this.submenuState = 'resetConfirm';
+    this.resetChoice = 0;
+    this.submenuDynamic.forEach(obj => obj.destroy());
+    this.submenuDynamic = [];
+
+    const g = this.submenuGroup!;
+
+    const rd = this.add.graphics();
+    rd.lineStyle(1, 0x2a4a3a);
+    rd.lineBetween(310, 430, 714, 430);
+    g.add(rd);
+    this.submenuDynamic.push(rd);
+
+    const w = this.add.text(512, 448, '\u26a0 Todo progresso salvo sera perdido!\nEsta acao nao pode ser desfeita.', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.warning,
+      align: 'center',
+    }).setOrigin(0.5);
+    g.add(w);
+    this.submenuDynamic.push(w);
+
+    const cb = this.add.text(440, 478, '[ CONFIRMAR ]', {
+      fontFamily: FONT,
+      fontSize: '13px',
+      color: COLORS.error,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    cb.on('pointerdown', () => this.executeReset());
+    g.add(cb);
+    this.submenuDynamic.push(cb);
+
+    const cc = this.add.text(584, 478, '[ CANCELAR ]', {
+      fontFamily: FONT,
+      fontSize: '13px',
+      color: COLORS.muted,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    cc.on('pointerdown', () => this.hideResetConfirm());
+    g.add(cc);
+    this.submenuDynamic.push(cc);
+
+    const eh = this.add.text(512, 502, 'ESC para cancelar', {
+      fontFamily: FONT,
+      fontSize: '11px',
+      color: COLORS.dimText,
+    }).setOrigin(0.5);
+    g.add(eh);
+    this.submenuDynamic.push(eh);
+
+    this.updateResetHighlight();
+  }
+
+  private hideResetConfirm() {
+    this.submenuState = 'about';
+    this.submenuDynamic.forEach(obj => obj.destroy());
+    this.submenuDynamic = [];
+
+    const g = this.submenuGroup!;
+
+    const rd = this.add.graphics();
+    rd.lineStyle(1, 0x2a4a3a);
+    rd.lineBetween(310, 430, 714, 430);
+    g.add(rd);
+    this.submenuDynamic.push(rd);
+
+    const eh = this.add.text(512, 450, 'ESC para voltar', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.dimText,
+    }).setOrigin(0.5);
+    g.add(eh);
+    this.submenuDynamic.push(eh);
+
+    const rb = this.add.text(512, 475, '[ RESETAR DADOS ]', {
+      fontFamily: FONT,
+      fontSize: '12px',
+      color: COLORS.error,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    rb.on('pointerdown', () => this.showResetConfirm());
+    g.add(rb);
+    this.submenuDynamic.push(rb);
+  }
+
+  private updateResetHighlight() {
+    if (this.submenuDynamic.length < 2) return;
+    const confirmText = this.submenuDynamic.find(
+      o => o.type === 'Text' && (o as Phaser.GameObjects.Text).text === '[ CONFIRMAR ]'
+    ) as Phaser.GameObjects.Text | undefined;
+    const cancelText = this.submenuDynamic.find(
+      o => o.type === 'Text' && (o as Phaser.GameObjects.Text).text === '[ CANCELAR ]'
+    ) as Phaser.GameObjects.Text | undefined;
+    if (confirmText) confirmText.setColor(this.resetChoice === 0 ? COLORS.error : COLORS.muted);
+    if (cancelText) cancelText.setColor(this.resetChoice === 1 ? COLORS.error : COLORS.muted);
+  }
+
+  private executeReset() {
+    saveMeta(defaultMeta());
+    this.hideSubmenu();
+    this.scene.restart();
   }
 
   private addButton(x: number, y: number, label: string, color: string, cb: () => void) {
@@ -216,6 +446,10 @@ export class MainMenuScene extends Phaser.Scene {
     this.buttons.forEach((b, i) => {
       b.text.setColor(i === idx ? b.color : COLORS.muted);
     });
+  }
+
+  private openShop() {
+    this.scene.start('Shop');
   }
 
   private startGame() {

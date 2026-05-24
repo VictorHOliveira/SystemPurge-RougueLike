@@ -5,7 +5,7 @@ export const MOVE_COOLDOWN_BASE = 120;
 export const TWEEN_DURATION_BASE = 60;
 
 export const TRAP_DMG_MIN = 2;
-export const TRAP_DMG_MAX = 4;
+export const TRAP_DMG_MAX = 5;
 export const BLEED_DAMAGE = 1;
 export const BLEED_TICKS = 3;
 export const LAMINA_BLEED_DMG = 1;

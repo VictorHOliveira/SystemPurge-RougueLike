@@ -110,7 +110,8 @@ export class RenderSystem {
       case TileType.WALL: return isVisible ? 'tile_wall' : 'tile_wall_dim';
       case TileType.STAIRS_DOWN: return isVisible ? 'tile_stairs' : 'tile_stairs_dim';
       case TileType.STAIRS_UP: return isVisible ? 'tile_stairs_up' : 'tile_stairs_up_dim';
-      case TileType.TRAP: return isVisible ? 'tile_trap' : 'tile_trap_dim';
+      case TileType.TRAP: return isVisible ? 'tile_floor' : 'tile_floor_dim';
+      case TileType.BURNED: return isVisible ? 'tile_trap' : 'tile_trap_dim';
       case TileType.ALTAR: return isVisible ? 'tile_altar' : 'tile_altar_dim';
       default: return isVisible ? 'tile_floor' : 'tile_floor_dim';
     }
@@ -133,8 +134,6 @@ export class RenderSystem {
 
     for (const [key, opened] of chests) {
       const [cx, cy] = parseChestKey(key);
-      if (!this.dirtyTiles[cy]?.[cx]) continue;
-      this.dirtyTiles[cy][cx] = false;
       if (!map.explored[cy]?.[cx]) continue;
       const vis = map.visible[cy]?.[cx] ?? false;
       const tex = opened
@@ -260,7 +259,7 @@ export class RenderSystem {
         if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
           ctx.fillStyle = t === TileType.STAIRS_DOWN ? '#44ddbb' : '#88ddff';
           ctx.fillRect(px, py, s, s);
-        } else if (t === TileType.TRAP) {
+        } else if (t === TileType.BURNED) {
           ctx.fillStyle = '#ff6644';
           ctx.fillRect(px, py, s, s);
         } else if (t === TileType.ALTAR) {
