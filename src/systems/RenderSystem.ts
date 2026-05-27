@@ -7,13 +7,19 @@ export class RenderSystem {
   private scene: Phaser.Scene;
   private state: GameState;
   private dirtyTiles: boolean[][] = [];
-  private prevVisible: boolean[][] = [];
-  private miniMapDirty = true;
+  private dirtyMinX = 0;
+  private dirtyMaxX = 0;
+  private dirtyMinY = 0;
+  private dirtyMaxY = 0;
+  private hasDirtyBounds = false;
+  private mmPrevEntityPositions: number[] = [];
 
   tileRT!: Phaser.GameObjects.RenderTexture;
   private miniMapImg!: Phaser.GameObjects.Image;
   entitySprites = new Map<string, Phaser.GameObjects.Image>();
   enemyHpBars = new Map<string, Phaser.GameObjects.Graphics>();
+  private hpBarFreelist: Phaser.GameObjects.Graphics[] = [];
+
   private particleEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(scene: Phaser.Scene, state: GameState) {
@@ -23,41 +29,44 @@ export class RenderSystem {
 
   private initDirtyGrid() {
     this.dirtyTiles = [];
-    this.prevVisible = [];
-    this.miniMapDirty = true;
+    this.hasDirtyBounds = false;
     for (let y = 0; y < MAP_H; y++) {
       this.dirtyTiles[y] = [];
-      this.prevVisible[y] = [];
       for (let x = 0; x < MAP_W; x++) {
         this.dirtyTiles[y][x] = true;
-        this.prevVisible[y][x] = false;
       }
     }
   }
 
   markAllDirty() {
+    this.dirtyMinX = 0;
+    this.dirtyMaxX = MAP_W - 1;
+    this.dirtyMinY = 0;
+    this.dirtyMaxY = MAP_H - 1;
+    this.hasDirtyBounds = true;
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++)
         this.dirtyTiles[y][x] = true;
-    this.miniMapDirty = true;
   }
 
   markDirty(x: number, y: number) {
-    if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H)
+    if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H) {
       this.dirtyTiles[y][x] = true;
-  }
-
-  syncVisibility() {
-    const { map } = this.state;
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
-        if (map.explored[y][x] && map.visible[y][x] !== this.prevVisible[y][x]) {
-          this.dirtyTiles[y][x] = true;
-          this.prevVisible[y][x] = map.visible[y][x];
-          this.miniMapDirty = true;
-        }
+      if (this.hasDirtyBounds) {
+        if (x < this.dirtyMinX) this.dirtyMinX = x;
+        if (x > this.dirtyMaxX) this.dirtyMaxX = x;
+        if (y < this.dirtyMinY) this.dirtyMinY = y;
+        if (y > this.dirtyMaxY) this.dirtyMaxY = y;
+      } else {
+        this.dirtyMinX = this.dirtyMaxX = x;
+        this.dirtyMinY = this.dirtyMaxY = y;
+        this.hasDirtyBounds = true;
       }
     }
+  }
+
+  onTileVisibilityChange(x: number, y: number) {
+    this.markDirty(x, y);
   }
 
   createRenderObjects(playerTextureKey: string) {
@@ -97,6 +106,8 @@ export class RenderSystem {
   destroyAll() {
     this.entitySprites.forEach(s => s.destroy());
     this.entitySprites.clear();
+    this.hpBarFreelist.forEach(s => s.destroy());
+    this.hpBarFreelist.length = 0;
     this.enemyHpBars.forEach(s => s.destroy());
     this.enemyHpBars.clear();
     if (this.tileRT) this.tileRT.destroy();
@@ -118,17 +129,33 @@ export class RenderSystem {
   }
 
   redrawMap() {
-    const { map, chests } = this.state;
+    const { map, chests, player, enemies } = this.state;
 
-    for (let y = 0; y < map.height; y++) {
-      for (let x = 0; x < map.width; x++) {
-        if (!this.dirtyTiles[y][x]) continue;
-        this.dirtyTiles[y][x] = false;
-        if (!map.explored[y][x]) continue;
+    const mmBounds = this.hasDirtyBounds;
+    const mmMinX = this.dirtyMinX, mmMaxX = this.dirtyMaxX;
+    const mmMinY = this.dirtyMinY, mmMaxY = this.dirtyMaxY;
 
-        const type = map.tiles[y][x];
-        const isVisible = map.visible[y][x];
-        this.tileRT.draw(this.tileKey(type, isVisible), x * TILE, y * TILE);
+    if (this.hasDirtyBounds) {
+      for (let y = this.dirtyMinY; y <= this.dirtyMaxY; y++) {
+        const row = this.dirtyTiles[y];
+        if (!row) continue;
+        for (let x = this.dirtyMinX; x <= this.dirtyMaxX; x++) {
+          if (!row[x]) continue;
+          row[x] = false;
+          if (!map.explored[y]?.[x]) continue;
+          this.tileRT.draw(this.tileKey(map.tiles[y][x], map.visible[y][x]), x * TILE, y * TILE);
+        }
+      }
+      this.hasDirtyBounds = false;
+    } else {
+      for (let y = 0; y < map.height; y++) {
+        const row = this.dirtyTiles[y];
+        for (let x = 0; x < map.width; x++) {
+          if (!row[x]) continue;
+          row[x] = false;
+          if (!map.explored[y]?.[x]) continue;
+          this.tileRT.draw(this.tileKey(map.tiles[y][x], map.visible[y][x]), x * TILE, y * TILE);
+        }
       }
     }
 
@@ -142,10 +169,122 @@ export class RenderSystem {
       this.tileRT.draw(tex, cx * TILE, cy * TILE);
     }
 
-    if (this.miniMapDirty) {
-      this.drawMiniMap();
-      this.miniMapDirty = false;
+    const canvas = this.scene.textures.get('minimap') as Phaser.Textures.CanvasTexture;
+    const ctx = canvas.context;
+    const s = 2;
+
+    if (mmBounds) {
+      for (let y = mmMinY; y <= mmMaxY; y++) {
+        for (let x = mmMinX; x <= mmMaxX; x++) {
+          if (!map.explored[y]?.[x]) continue;
+          this.drawMiniMapTileAt(ctx, map, x, y, 1 + x * s, 1 + y * s);
+        }
+      }
+    } else {
+      const w = MAP_W * s;
+      const h = MAP_H * s;
+      ctx.clearRect(0, 0, w + 2, h + 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, w + 2, h + 2);
+      ctx.strokeStyle = '#334455';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w + 1, h + 1);
+      for (let y = 0; y < MAP_H; y++) {
+        for (let x = 0; x < MAP_W; x++) {
+          if (!map.explored[y][x]) continue;
+          this.drawMiniMapTileAt(ctx, map, x, y, 1 + x * s, 1 + y * s);
+        }
+      }
     }
+
+    for (let i = 0; i < this.mmPrevEntityPositions.length; i++) {
+      const packed = this.mmPrevEntityPositions[i];
+      const ex = packed & 0xFFFF;
+      const ey = packed >>> 16;
+      if (map.explored[ey]?.[ex]) {
+        this.drawMiniMapTileAt(ctx, map, ex, ey, 1 + ex * s, 1 + ey * s);
+      }
+    }
+    this.mmPrevEntityPositions.length = 0;
+
+    for (const [key, opened] of chests) {
+      const [cx, cy] = parseChestKey(key);
+      if (!opened && map.explored[cy]?.[cx]) {
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(1 + cx * s, 1 + cy * s, s, s);
+        this.mmPrevEntityPositions.push((cy << 16) | cx);
+      }
+    }
+
+    for (const e of enemies) {
+      if (!e.isAlive || !map.visible[e.y]?.[e.x]) continue;
+      ctx.fillStyle = '#ff4444';
+      ctx.fillRect(1 + e.x * s, 1 + e.y * s, s, s);
+      this.mmPrevEntityPositions.push((e.y << 16) | e.x);
+    }
+
+    ctx.fillStyle = '#00ff88';
+    ctx.fillRect(1 + player.x * s, 1 + player.y * s, s, s);
+    this.mmPrevEntityPositions.push((player.y << 16) | player.x);
+
+    canvas.refresh();
+  }
+
+  private drawMiniMapTileAt(ctx: CanvasRenderingContext2D, map: any, x: number, y: number, px: number, py: number) {
+    const vis = map.visible[y][x];
+    const t = map.tiles[y][x];
+    ctx.clearRect(px, py, 2, 2);
+    if (t === TileType.WALL) {
+      ctx.fillStyle = vis ? '#556677' : '#2a3a4a';
+    } else {
+      ctx.fillStyle = vis ? '#224466' : '#141e2e';
+    }
+    ctx.fillRect(px, py, 2, 2);
+    if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
+      ctx.fillStyle = t === TileType.STAIRS_DOWN ? '#44ddbb' : '#88ddff';
+      ctx.fillRect(px, py, 2, 2);
+    } else if (t === TileType.BURNED) {
+      ctx.fillStyle = '#ff6644';
+      ctx.fillRect(px, py, 2, 2);
+    } else if (t === TileType.ALTAR) {
+      ctx.fillStyle = '#cc66ff';
+      ctx.fillRect(px, py, 2, 2);
+    }
+  }
+
+  private allocateHpBar(): Phaser.GameObjects.Graphics {
+    if (this.hpBarFreelist.length > 0) {
+      const bar = this.hpBarFreelist.pop()!;
+      bar.clear();
+      bar.setVisible(true);
+      return bar;
+    }
+    const bar = this.scene.add.graphics();
+    bar.setDepth(20);
+    return bar;
+  }
+
+  private recycleHpBar(enemyId: string): void {
+    const bar = this.enemyHpBars.get(enemyId);
+    if (bar) {
+      bar.clear();
+      bar.setVisible(false);
+      this.hpBarFreelist.push(bar);
+    }
+    this.enemyHpBars.delete(enemyId);
+  }
+
+  private drawHpBar(enemy: { hp: number; maxHp: number; x: number; y: number }, hpBar: Phaser.GameObjects.Graphics) {
+    const bx = enemy.x * TILE;
+    const by = enemy.y * TILE - 6;
+    const bw = TILE;
+    const bh = 3;
+    const pct = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
+    hpBar.fillStyle(0x000000, 0.6);
+    hpBar.fillRect(bx, by, bw, bh);
+    const barColor = pct > 0.6 ? 0x00ff88 : pct > 0.3 ? 0xffcc00 : 0xff4444;
+    hpBar.fillStyle(barColor);
+    if (pct > 0) hpBar.fillRect(bx + 1, by + 1, Math.floor((bw - 2) * Math.max(0.01, pct)), bh - 2);
   }
 
   syncEntitySprites() {
@@ -157,54 +296,44 @@ export class RenderSystem {
       pSpr.setVisible(player.isAlive);
     }
 
-    const usedBars = new Set<string>();
-    for (const enemy of enemies) {
-      const spr = this.entitySprites.get(enemy.id);
-      if (!spr) continue;
-
-      if (enemy.isAlive && map.visible[enemy.y]?.[enemy.x]) {
-        spr.setPosition(enemy.x * TILE + TILE / 2, enemy.y * TILE + TILE / 2);
-        spr.setVisible(true);
-
-        let hpBar = this.enemyHpBars.get(enemy.id);
-        if (!hpBar) {
-          hpBar = this.scene.add.graphics();
-          hpBar.setDepth(20);
-          this.enemyHpBars.set(enemy.id, hpBar);
-        }
-        usedBars.add(enemy.id);
-        hpBar.clear();
-        hpBar.setVisible(true);
-
-        const bx = enemy.x * TILE;
-        const by = enemy.y * TILE - 6;
-        const bw = TILE;
-        const bh = 3;
-        const pct = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
-        hpBar.fillStyle(0x000000, 0.6);
-        hpBar.fillRect(bx, by, bw, bh);
-        const barColor = pct > 0.6 ? 0x00ff88 : pct > 0.3 ? 0xffcc00 : 0xff4444;
-        hpBar.fillStyle(barColor);
-        if (pct > 0) hpBar.fillRect(bx + 1, by + 1, Math.floor((bw - 2) * Math.max(0.01, pct)), bh - 2);
-      } else {
-        spr.setVisible(false);
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const enemy = enemies[i];
+      let spr = this.entitySprites.get(enemy.id);
+      if (!spr) {
+        spr = this.scene.add.image(0, 0, enemy.textureKey);
+        spr.setOrigin(0.5, 0.5).setDepth(9);
+        this.entitySprites.set(enemy.id, spr);
       }
-    }
 
-    for (const [id, bar] of this.enemyHpBars) {
-      if (!usedBars.has(id)) bar.setVisible(false);
-    }
+      if (!enemy.isAlive) {
+        this.recycleHpBar(enemy.id);
+        if (spr) { spr.destroy(); this.entitySprites.delete(enemy.id); }
+        continue;
+      }
 
-    for (const enemy of enemies) {
-      if (!enemy.isAlive) this.removeEnemySprite(enemy.id);
+      if (!map.visible[enemy.y]?.[enemy.x]) {
+        spr.setVisible(false);
+        this.recycleHpBar(enemy.id);
+        continue;
+      }
+
+      spr.setPosition(enemy.x * TILE + TILE / 2, enemy.y * TILE + TILE / 2);
+      spr.setVisible(true);
+
+      let hpBar = this.enemyHpBars.get(enemy.id);
+      if (!hpBar) {
+        hpBar = this.allocateHpBar();
+        this.enemyHpBars.set(enemy.id, hpBar);
+      }
+      hpBar.clear();
+      this.drawHpBar(enemy, hpBar);
     }
   }
 
   removeEnemySprite(enemyId: string) {
     const spr = this.entitySprites.get(enemyId);
     if (spr) { spr.destroy(); this.entitySprites.delete(enemyId); }
-    const bar = this.enemyHpBars.get(enemyId);
-    if (bar) { bar.destroy(); this.enemyHpBars.delete(enemyId); }
+    this.recycleHpBar(enemyId);
   }
 
   centerOnPlayer() {
@@ -224,68 +353,5 @@ export class RenderSystem {
     this.particleEmitter.explode(count);
   }
 
-  private drawMiniMap() {
-    const canvas = this.scene.textures.get('minimap') as Phaser.Textures.CanvasTexture;
-    const ctx = canvas.context;
-    const { map, player, enemies, chests } = this.state;
 
-    const s = 2;
-    const w = MAP_W * s;
-    const h = MAP_H * s;
-
-    ctx.clearRect(0, 0, w + 2, h + 2);
-
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0, 0, w + 2, h + 2);
-    ctx.strokeStyle = '#334455';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, w + 1, h + 1);
-
-    for (let y = 0; y < MAP_H; y++) {
-      for (let x = 0; x < MAP_W; x++) {
-        if (!map.explored[y][x]) continue;
-        const vis = map.visible[y][x];
-        const t = map.tiles[y][x];
-        const px = 1 + x * s;
-        const py = 1 + y * s;
-
-        if (t === TileType.WALL) {
-          ctx.fillStyle = vis ? '#556677' : '#2a3a4a';
-        } else {
-          ctx.fillStyle = vis ? '#224466' : '#141e2e';
-        }
-        ctx.fillRect(px, py, s, s);
-
-        if (t === TileType.STAIRS_DOWN || t === TileType.STAIRS_UP) {
-          ctx.fillStyle = t === TileType.STAIRS_DOWN ? '#44ddbb' : '#88ddff';
-          ctx.fillRect(px, py, s, s);
-        } else if (t === TileType.BURNED) {
-          ctx.fillStyle = '#ff6644';
-          ctx.fillRect(px, py, s, s);
-        } else if (t === TileType.ALTAR) {
-          ctx.fillStyle = '#cc66ff';
-          ctx.fillRect(px, py, s, s);
-        }
-      }
-    }
-
-    for (const [key, opened] of chests) {
-      const [cx, cy] = parseChestKey(key);
-      if (!opened && map.explored[cy]?.[cx]) {
-        ctx.fillStyle = '#ffd700';
-        ctx.fillRect(1 + cx * s, 1 + cy * s, s, s);
-      }
-    }
-
-    for (const e of enemies) {
-      if (!e.isAlive || !map.visible[e.y]?.[e.x]) continue;
-      ctx.fillStyle = '#ff4444';
-      ctx.fillRect(1 + e.x * s, 1 + e.y * s, s, s);
-    }
-
-    ctx.fillStyle = '#00ff88';
-    ctx.fillRect(1 + player.x * s, 1 + player.y * s, s, s);
-
-    canvas.refresh();
-  }
 }

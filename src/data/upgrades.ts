@@ -39,7 +39,7 @@ export const ALL_UPGRADES: Upgrade[] = [
   { id: 'registry_cleaner', name: 'Limpador de Registro', description: '15% de chance de desviar ataques', category: 'passive', unique: true },
   { id: 'network_shield', name: 'Escudo de Rede', description: '15%/30%/50% de chance de refletir dano (nv1/2/3)', category: 'passive', unique: false, maxLevel: 3 },
   { id: 'cache_partition', name: 'Cache Particionado', description: 'Regenera 0,3 HP a cada 6 turnos', category: 'passive', unique: true },
-  { id: 'boot_sector', name: 'Proteção do Setor de Boot', description: 'Sobrevive a golpe fatal com 1 HP (uma vez)', category: 'passive', unique: true },
+  { id: 'boot_sector', name: 'Proteção do Setor de Boot', description: 'Sobrevive a um golpe fatal recuperando 25% da vida (uma vez)', category: 'passive', unique: true },
   { id: 'encryption_layer', name: 'Camada de Criptografia', description: 'Primeiro golpe por andar reduzido em 3', category: 'passive', unique: true },
 
   // --- Class-exclusive upgrades ---
@@ -51,7 +51,7 @@ export const ALL_UPGRADES: Upgrade[] = [
   { id: 'campo_pressurizado', name: 'Campo Pressurizado', description: 'Pressão de Pacotes causa +1 de dano', category: 'passive', unique: true, classId: 'muralha' },
   { id: 'script_compactado', name: 'Script Compactado', description: 'Cooldown das habilidades reduzido em 1', category: 'passive', unique: true, classId: 'daemon' },
   { id: 'dados_corrompidos', name: 'Dados Corrompidos', description: 'Sangramento causa +1 de dano', category: 'passive', unique: true, classId: 'daemon' },
-  { id: 'estouro_em_cascata', name: 'Estouro em Cascata', description: 'Overflow alcanca +1 tile por nivel (max 4)', category: 'passive', unique: false, maxLevel: 4, classId: 'daemon' },
+  { id: 'estouro_em_cascata', name: 'Estouro em Cascata', description: 'Overflow alcança +1 tile por nível (max 4)', category: 'passive', unique: false, maxLevel: 4, classId: 'daemon' },
 ];
 
 export function rollUpgrades(
@@ -66,7 +66,11 @@ export function rollUpgrades(
     return true;
   });
 
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const shuffled = [...pool];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
@@ -96,7 +100,11 @@ export function rollRewards(
     combined.push(...ALL_ITEMS.map(i => ({ kind: 'item' as const, id: i.id })));
   }
 
-  const shuffled = [...combined].sort(() => Math.random() - 0.5);
+  const shuffled = [...combined];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
@@ -119,7 +127,7 @@ export const UPGRADE_DISP: Record<string, { fmt(lvl: number, plvl: number): stri
   registry_cleaner:     { color: '#aa88cc', fmt: () => 'Esq 15%' },
   network_shield:       { color: '#aa88cc', fmt: (l) => l >= 3 ? 'Ref 50%' : l >= 2 ? 'Ref 30%' : 'Ref 15%' },
   cache_partition:      { color: '#aa88cc', fmt: () => 'Regen 0.3' },
-  boot_sector:          { color: '#ff8844', fmt: () => 'Salva 1×' },
+  boot_sector:          { color: '#ff8844', fmt: () => 'Cura 25%' },
   encryption_layer:     { color: '#ff8844', fmt: () => '-3 1×/and' },
   lamina_energizada:    { color: '#aa88cc', fmt: () => 'Sangra 1' },
   golpe_duplo:          { color: '#aa88cc', fmt: () => '×2 30%' },

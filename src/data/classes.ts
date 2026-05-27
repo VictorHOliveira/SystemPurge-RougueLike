@@ -113,7 +113,7 @@ export const CLASSES: PlayerClass[] = [
       {
         id: 'criptografia',
         name: 'Criptografia Total',
-        description: 'Reduz dano recebido em 50% por 3 turnos',
+        description: 'Reduz dano recebido em 50% por 3 ataques',
         cooldown: 8,
         type: 'defense_buff',
         damage: 0,

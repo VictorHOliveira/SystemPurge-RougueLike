@@ -31,7 +31,7 @@ export const PURCHASABLE_ABILITIES: PurchasableAbility[] = [
   {
     id: 'sobrecarga_kernel',
     name: 'Sobrecarga de Kernel',
-    description: '+5 de ATQ por 4 turnos',
+    description: '+5 de ATQ por 4 ataques',
     cooldown: 35,
     type: 'self_buff',
     damage: 5,
@@ -57,7 +57,7 @@ export const PURCHASABLE_ABILITIES: PurchasableAbility[] = [
   {
     id: 'espelhamento',
     name: 'Espelhamento',
-    description: '100% de chance de refletir dano por 2 turnos',
+    description: '100% de chance de refletir dano por 2 ataques',
     cooldown: 40,
     type: 'reflect_buff',
     duration: 2,

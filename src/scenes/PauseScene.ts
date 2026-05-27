@@ -52,8 +52,9 @@ export class PauseScene extends Phaser.Scene {
 
     this.addButton(320, 170, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
     this.addButton(320, 230, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
-    this.addButton(320, 290, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
-    this.addButton(320, 350, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
+    this.addButton(320, 290, '[ Compêndio ]', COLORS.subtitle, () => this.openCompendium());
+    this.addButton(320, 350, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(320, 410, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
 
     this.add.text(320, 480, 'Setas | ENTER | ESC', {
       fontFamily: FONT,
@@ -172,6 +173,10 @@ export class PauseScene extends Phaser.Scene {
       sound.confirm();
       this.buttons[this.selectedIndex].cb();
     }
+  }
+
+  private openCompendium() {
+    this.scene.start('Compendium', { returnScene: 'Pause' });
   }
 
   private showControls() {

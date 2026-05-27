@@ -13,7 +13,7 @@ const RIGHT = 1006;
 
 const ITEM_NAMES: Record<string, string> = {};
 for (const item of ALL_ITEMS) {
-  ITEM_NAMES[item.id] = `${item.icon} ${item.name}`;
+  ITEM_NAMES[item.id] = `${item.name}`;
 }
 
 const CLASS_NAMES: Record<string, string> = {};
@@ -55,6 +55,7 @@ export class HUDScene extends Phaser.Scene {
   private logHeader!: Phaser.GameObjects.Text;
   private messageTexts: Phaser.GameObjects.Text[] = [];
 
+  private footerText!: Phaser.GameObjects.Text;
   private lastHudVersion = -1;
 
   constructor() {
@@ -244,7 +245,7 @@ export class HUDScene extends Phaser.Scene {
   }
 
   private buildFooter() {
-    this.add.text(HUD_X + 14, 616, '', {
+    this.footerText = this.add.text(HUD_X + 14, 616, '', {
       fontFamily: FONT,
       fontSize: FONT_SIZES.footer,
       color: COLORS.dimBorder,
@@ -290,11 +291,12 @@ export class HUDScene extends Phaser.Scene {
     const bleedTicks = (this.registry.get(R.bleedTicks) as number) ?? 0;
     const defenseBuff = (this.registry.get(R.defenseBuff) as number) ?? 0;
     const upgradesMap = (this.registry.get(R.upgrades) as Map<string, number>) ?? new Map();
+    const hasFatalGuard = (this.registry.get(R.hasFatalGuard) as boolean) ?? false;
 
     const className = CLASS_NAMES[classId] ?? classId;
     const b = loadBindings();
 
-    this.updatePanel1({ name, level, floor, className, bleedTicks, defenseBuff, hp, maxHp, xp, xpN, kills });
+    this.updatePanel1({ name, level, floor, className, bleedTicks, defenseBuff, hasFatalGuard, hp, maxHp, xp, xpN, kills });
 
     const abilKey0 = displayKey(b.ability_0);
     const abilKey1 = displayKey(b.ability_1);
@@ -305,11 +307,12 @@ export class HUDScene extends Phaser.Scene {
     this.updateFooter(b);
   }
 
-  private updatePanel1(data: { name: string; level: number; floor: number; className: string; bleedTicks: number; defenseBuff: number; hp: number; maxHp: number; xp: number; xpN: number; kills: number }) {
+  private updatePanel1(data: { name: string; level: number; floor: number; className: string; bleedTicks: number; defenseBuff: number; hasFatalGuard: boolean; hp: number; maxHp: number; xp: number; xpN: number; kills: number }) {
     this.headerText.setText(data.name);
     let classLine = `Nv ${data.level}  \u2502  /system/${data.floor}  \u2502  ${data.className}`;
     if (data.bleedTicks > 0) classLine += '   \u25b8 SANGRA';
     if (data.defenseBuff > 0) classLine += '   \u25b8 CRIPTO';
+    if (data.hasFatalGuard) classLine += '   \u25b8 BOOT';
     this.classText.setText(classLine);
 
     const y = 6;
@@ -466,26 +469,21 @@ export class HUDScene extends Phaser.Scene {
     const inv3 = displayKey(b.item_3);
     const inv4 = displayKey(b.item_4);
     const inv5 = displayKey(b.item_5);
-    this.children.list[this.children.list.length - 1]?.destroy();
-    this.add.text(HUD_X + 14, 616, `System Purge v${version}    [${abil0}/${abil1}/${abil2}] Hab  [${inv0}-${inv1}-${inv2}-${inv3}-${inv4}-${inv5}] Usar`, {
-      fontFamily: FONT,
-      fontSize: FONT_SIZES.footer,
-      color: COLORS.lightText,
-    });
+    this.footerText.setText(`System Purge v${version}    [${abil0}/${abil1}/${abil2}] Hab  [${inv0}-${inv1}-${inv2}-${inv3}-${inv4}-${inv5}] Usar`);
   }
 
   private abilityStats(a: { type: string; damage?: number; duration?: number }, effectiveAtk: number, hp: number, maxHp: number): string {
     switch (a.type) {
       case 'melee_aoe': return '[ATQ - DEF]';
       case 'projectile_barrage': return '[ATQ \u00d71,5]';
-      case 'defense_buff': return `[-50% ${a.duration ?? 3}t]`;
+      case 'defense_buff': return `[-50% ${a.duration ?? 3}a]`;
       case 'aoe_damage': return a.duration ? `[${a.damage ?? 8} + sangra]` : `[${a.damage ?? 8}]`;
       case 'dot': return a.duration ? `[${a.damage ?? 10} + sangra ${a.duration}t]` : `[${a.damage ?? 10}]`;
       case 'heal': return `[cura ~${Math.max(1, Math.floor((maxHp - hp) * 0.5))}]`;
-      case 'self_buff': return `[+${a.damage ?? 5} ATQ ${a.duration ?? 4}t]`;
+      case 'self_buff': return `[+${a.damage ?? 5} ATQ ${a.duration ?? 4}a]`;
       case 'shield': return '[absorve]';
       case 'knockback': return '[empurra]';
-      case 'reflect_buff': return `[reflete ${a.duration ?? 2}t]`;
+      case 'reflect_buff': return `[reflete ${a.duration ?? 2}a]`;
       default: return '';
     }
   }

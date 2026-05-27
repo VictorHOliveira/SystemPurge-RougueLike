@@ -11,11 +11,11 @@ import { TileType } from '../data/tiles';
 import { version } from '../../package.json';
 import { trackEvent } from '../analytics';
 import { sound } from '../audio/SoundManager';
-import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, isAdjacent, parseChestKey } from '../constants';
+import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, isAdjacent } from '../constants';
 import { InputHandler } from './GameInput';
 import { RegistryKeys } from '../RegistryKeys';
-import { META_UPGRADES } from '../data/metaUpgrades';
-import { loadMeta } from '../utils/metaSave';
+import { META_UPGRADES, CLASS_FLOOR_UNLOCK } from '../data/metaUpgrades';
+import { loadMeta, saveMeta } from '../utils/metaSave';
 import { PURCHASABLE_ABILITIES } from '../data/purchasableAbilities';
 import { CLASSES } from '../data/classes';
 
@@ -34,6 +34,7 @@ export class GameScene extends Phaser.Scene {
   classId: string = 'limpador';
 
   private occGrid: Uint8Array = new Uint8Array(MAP_H * MAP_W);
+  private occGridDirty: number[] = [];
 
   init(data?: { classId?: string }) {
     if (data?.classId) this.classId = data.classId;
@@ -49,8 +50,8 @@ export class GameScene extends Phaser.Scene {
       this.fullRestart();
     }
     this.inputHandler.initBindings();
+    this.syncStaticRegistry();
     this.syncRegistry();
-    this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
   };
 
   create() {
@@ -73,14 +74,15 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.renderSystem = new RenderSystem(this, this.state);
-    this.combatSystem = new CombatSystem(this, this.state, {
-      onEnemyDeath: (enemy) => this.handleEnemyDeath(enemy),
-      spawnParticles: (x, y, tint, c) => this.renderSystem.spawnParticles(x, y, tint, c),
-    });
     this.projectileSystem = new ProjectileSystem(this, this.state, {
       meleeAttack: (a, d, p) => this.combatSystem.meleeAttack(a, d, p),
       onAnimationStart: () => { this.isAnimating = true; },
       onAnimationEnd: () => { this.isAnimating = false; this.endTurn(); },
+    });
+    this.combatSystem = new CombatSystem(this, this.state, {
+      onEnemyDeath: (enemy) => this.handleEnemyDeath(enemy),
+      spawnParticles: (x, y, tint, c) => this.renderSystem.spawnParticles(x, y, tint, c),
+      enemyAt: (x, y) => this.projectileSystem.enemyAt(x, y),
     });
     this.actionSystem = new ActionSystem(this, this.state, {
       meleeAttack: (a, d, p) => this.combatSystem.meleeAttack(a, d, p),
@@ -89,6 +91,7 @@ export class GameScene extends Phaser.Scene {
       getDirEnemy: (dx, dy) => this.projectileSystem.getDirEnemy(dx, dy),
       onAnimationStart: () => { this.isAnimating = true; },
       onAnimationEnd: () => { this.isAnimating = false; },
+      onMapRevealed: () => this.renderSystem.markAllDirty(),
       endTurn: () => this.endTurn(),
     });
     this.floorGenerator = new FloorGenerator(this, this.state);
@@ -99,6 +102,7 @@ export class GameScene extends Phaser.Scene {
     this.generateFloor();
     this.applyMetaUpgrades();
     this.loadActiveAbilities();
+    this.syncStaticRegistry();
     this.syncRegistry();
 
     this.inputHandler = new InputHandler(this);
@@ -126,8 +130,7 @@ export class GameScene extends Phaser.Scene {
 
     this.combatSystem.processClassPressure();
 
-    this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y);
-    this.renderSystem.syncVisibility();
+    this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y, (x, y) => this.renderSystem.onTileVisibilityChange(x, y));
 
     this.combatSystem.processAdjacentAttacks();
 
@@ -152,8 +155,6 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.redrawMap();
     this.renderSystem.syncEntitySprites();
     this.renderSystem.centerOnPlayer();
-
-    this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
   }
 
   private handlePlayerDeath() {
@@ -163,7 +164,6 @@ export class GameScene extends Phaser.Scene {
     trackEvent('player_death', { floor: this.state.player.floor, level: this.state.player.level, kills: this.state.kills });
     this.syncRegistry();
     this.renderSystem.syncEntitySprites();
-    this.registry.set(RegistryKeys.hud, (this.registry.get(RegistryKeys.hud) as number ?? 0) + 1);
     this.scene.pause();
     this.scene.launch('GameOver', {
       floor: this.state.player.floor,
@@ -175,12 +175,40 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private enemyCanSeePlayer(enemy: Enemy): boolean {
-    if (this.state.map.visible[enemy.y]?.[enemy.x]) return true;
-    const dx = Math.abs(this.state.player.x - enemy.x);
-    const dy = Math.abs(this.state.player.y - enemy.y);
-    if (Math.max(dx, dy) <= 2) return true;
+  private enemyIsWalkable = (x: number, y: number): boolean => {
+    return this.state.map.isWalkable(x, y);
+  };
+
+  private enemyIsOccupied = (x: number, y: number): boolean => {
+    if (this.state.player.x === x && this.state.player.y === y && this.state.player.isAlive) return true;
+    if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H && this.occGrid[y * MAP_W + x]) return true;
     return false;
+  };
+
+  private rebuildOccGrid() {
+    for (let i = 0; i < this.occGridDirty.length; i++) {
+      this.occGrid[this.occGridDirty[i]] = 0;
+    }
+    this.occGridDirty.length = 0;
+    const { enemies, chests } = this.state;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      if (e.isAlive) {
+        const pos = e.y * MAP_W + e.x;
+        this.occGrid[pos] = 1;
+        this.occGridDirty.push(pos);
+      }
+    }
+    for (const [key, opened] of chests) {
+      if (!opened) {
+        const idx = key.indexOf(',');
+        const cx = parseInt(key.substring(0, idx), 10);
+        const cy = parseInt(key.substring(idx + 1), 10);
+        const pos = cy * MAP_W + cx;
+        this.occGrid[pos] = 1;
+        this.occGridDirty.push(pos);
+      }
+    }
   }
 
   private processEnemyAI() {
@@ -188,62 +216,55 @@ export class GameScene extends Phaser.Scene {
 
     this.combatSystem.processEnemyBleeds();
 
-    this.occGrid.fill(0);
-    for (const e of this.state.enemies) {
-      if (e.isAlive) this.occGrid[e.y * MAP_W + e.x] = 1;
-    }
-    for (const [key, opened] of this.state.chests) {
-      if (!opened) {
-        const [cx, cy] = parseChestKey(key);
-        this.occGrid[cy * MAP_W + cx] = 1;
-      }
-    }
+    this.rebuildOccGrid();
 
-    for (const enemy of this.state.enemies) {
+    const { player, map } = this.state;
+    const enemies = this.state.enemies;
+
+    for (let i = 0; i < enemies.length; i++) {
+      const enemy = enemies[i];
       if (!enemy.isAlive) continue;
-      if (!this.state.player.isAlive) break;
-      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
+      if (!player.isAlive) break;
+      if (isAdjacent(player.x, player.y, enemy.x, enemy.y)) {
         if (enemy.behavior === 'suicide') {
-          this.combatSystem.suicideExplosion(enemy, this.state.player);
-          if (!this.state.player.isAlive) return;
+          this.combatSystem.suicideExplosion(enemy, player);
+          if (!player.isAlive) return;
           this.handleEnemyDeath(enemy);
-          continue;
         }
-        this.combatSystem.meleeAttack(enemy, this.state.player);
-        if (!this.state.player.isAlive) return;
         continue;
       }
 
-      const canSeePlayer = this.enemyCanSeePlayer(enemy);
+      const canSeePlayer = map.visible[enemy.y]?.[enemy.x] ?? (Math.max(Math.abs(player.x - enemy.x), Math.abs(player.y - enemy.y)) <= 2);
+
+      const prevX = enemy.x;
+      const prevY = enemy.y;
 
       enemy.takeTurn(
-        this.state.player.x,
-        this.state.player.y,
+        player.x,
+        player.y,
         canSeePlayer,
-        (x, y) => this.state.map.isWalkable(x, y),
-        (x, y) => {
-          if (this.state.player.x === x && this.state.player.y === y && this.state.player.isAlive) return true;
-          if (x >= 0 && x < MAP_W && y >= 0 && y < MAP_H && this.occGrid[y * MAP_W + x]) return true;
-          return false;
-        },
+        this.enemyIsWalkable,
+        this.enemyIsOccupied,
       );
 
-      if (isAdjacent(this.state.player.x, this.state.player.y, enemy.x, enemy.y)) {
+      const didMove = enemy.x !== prevX || enemy.y !== prevY;
+
+      if (isAdjacent(player.x, player.y, enemy.x, enemy.y)) {
         if (enemy.behavior === 'suicide') {
-          this.combatSystem.suicideExplosion(enemy, this.state.player);
-          if (!this.state.player.isAlive) return;
+          this.combatSystem.suicideExplosion(enemy, player);
+          if (!player.isAlive) return;
           this.handleEnemyDeath(enemy);
           continue;
         }
-        this.combatSystem.meleeAttack(enemy, this.state.player);
-        if (!this.state.player.isAlive) return;
-      } else if (enemy.behavior === 'ranged' && canSeePlayer && enemy.isAlive) {
-        const dx = this.state.player.x - enemy.x;
-        const dy = this.state.player.y - enemy.y;
+        this.combatSystem.meleeAttack(enemy, player);
+        if (!player.isAlive) return;
+      } else if (!didMove && enemy.behavior === 'ranged' && canSeePlayer && enemy.isAlive) {
+        const dx = player.x - enemy.x;
+        const dy = player.y - enemy.y;
         const dist = Math.max(Math.abs(dx), Math.abs(dy));
         if (dist >= 2 && dist <= 5) {
-          this.combatSystem.rangedAttack(enemy, this.state.player);
-          if (!this.state.player.isAlive) return;
+          this.combatSystem.rangedAttack(enemy, player);
+          if (!player.isAlive) return;
         }
       }
     }
@@ -290,8 +311,8 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.createEnemySprites();
     this.projectileSystem.rebuildEnemyGrid();
     this.combatSystem.rebuildEnemyMap();
+    this.renderSystem.markAllDirty();
     this.renderSystem.redrawMap();
-    this.renderSystem.syncVisibility();
     this.renderSystem.syncEntitySprites();
     this.renderSystem.centerOnPlayer();
 
@@ -308,6 +329,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.isAnimating = false;
+
+    const meta = loadMeta();
+    const floor = this.state.player.floor;
+    let newUnlock: string | null = null;
+    for (const [classId, reqFloor] of Object.entries(CLASS_FLOOR_UNLOCK)) {
+      if (floor >= reqFloor && !meta.unlocks[classId]) {
+        meta.unlocks[classId] = true;
+        newUnlock = classId;
+      }
+    }
+    if (newUnlock) {
+      saveMeta(meta);
+      this.scene.pause();
+      this.scene.launch('ClassUnlock', { classId: newUnlock });
+    }
   }
 
   private applyMetaUpgrades() {
@@ -350,6 +386,21 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private hudVersion = 0;
+
+  private syncStaticRegistry() {
+    const p = this.state.player!;
+    const R = RegistryKeys;
+    this.registry.set(R.name, p.name);
+    this.registry.set(R.baseFov, p.classDef.fov);
+    this.registry.set(R.baseMoveSpeed, p.classDef.moveSpeed);
+    this.registry.set(R.upgrades, p.acquiredUpgrades);
+    this.registry.set(R.inventory, p.inventory);
+    this.registry.set(R.unlockedSlots, p.unlockedSlots);
+    this.registry.set(R.classId, this.classId);
+    this.registry.set(R.abilities, p.classDef.abilities);
+  }
+
   private syncRegistry() {
     const p = this.state.player!;
     const R = RegistryKeys;
@@ -361,25 +412,19 @@ export class GameScene extends Phaser.Scene {
     this.registry.set(R.defense, p.defense);
     this.registry.set(R.xp, p.xp);
     this.registry.set(R.xpNext, p.xpToNext);
-    this.registry.set(R.name, p.name);
     this.registry.set(R.kills, this.state.kills);
     this.registry.set(R.bleedTicks, p.bleedTicks);
-    this.registry.set(R.defenseBuff, p.defenseBuffRemaining);
+    this.registry.set(R.defenseBuff, p.defenseBuffCharges);
     this.registry.set(R.tempAtkBonus, p.tempAtkBonus);
     this.registry.set(R.tempDefBonus, p.tempDefBonus);
     this.registry.set(R.bonusFov, p.bonusFov);
+    this.registry.set(R.hasFatalGuard, p.hasFatalGuard);
     this.registry.set(R.cooldownReduction, p.cooldownReduction);
-    this.registry.set(R.baseFov, p.classDef.fov);
-    this.registry.set(R.baseMoveSpeed, p.classDef.moveSpeed);
     this.registry.set(R.currentMoveSpeed, p.moveSpeed);
+    this.registry.set(R.cooldowns, p.cooldowns);
     const msgs = this.state.messageLog?.getLast(10) ?? [];
     this.registry.set(R.messages, msgs);
-    this.registry.set(R.upgrades, p.acquiredUpgrades);
-    this.registry.set(R.inventory, p.inventory);
-    this.registry.set(R.unlockedSlots, p.unlockedSlots);
-    this.registry.set(R.classId, this.classId);
-    this.registry.set(R.cooldowns, p.cooldowns);
-    this.registry.set(R.abilities, p.classDef.abilities);
-    this.registry.set(R.hud, (this.registry.get(R.hud) as number ?? 0) + 1);
+    this.hudVersion++;
+    this.registry.set(R.hud, this.hudVersion);
   }
 }

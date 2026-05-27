@@ -10,6 +10,10 @@ export class InputHandler {
   private game: GameScene;
   keyObjects = new Map<string, Phaser.Input.Keyboard.Key>();
   private keyToAction = new Map<string, GameAction>();
+  private keyUp?: Phaser.Input.Keyboard.Key;
+  private keyDown?: Phaser.Input.Keyboard.Key;
+  private keyLeft?: Phaser.Input.Keyboard.Key;
+  private keyRight?: Phaser.Input.Keyboard.Key;
 
   constructor(game: GameScene) {
     this.game = game;
@@ -45,6 +49,11 @@ export class InputHandler {
       }
     }
 
+    this.keyUp = this.keyObjects.get('move_up');
+    this.keyDown = this.keyObjects.get('move_down');
+    this.keyLeft = this.keyObjects.get('move_left');
+    this.keyRight = this.keyObjects.get('move_right');
+
     for (const action of GAME_ACTIONS) {
       this.keyToAction.set(b[action], action);
     }
@@ -56,10 +65,10 @@ export class InputHandler {
 
     let dx = 0;
     let dy = 0;
-    if (this.keyObjects.get('move_up')?.isDown) dy -= 1;
-    if (this.keyObjects.get('move_down')?.isDown) dy += 1;
-    if (this.keyObjects.get('move_left')?.isDown) dx -= 1;
-    if (this.keyObjects.get('move_right')?.isDown) dx += 1;
+    if (this.keyUp?.isDown) dy -= 1;
+    if (this.keyDown?.isDown) dy += 1;
+    if (this.keyLeft?.isDown) dx -= 1;
+    if (this.keyRight?.isDown) dx += 1;
 
     if (dx === 0 && dy === 0) {
       this.game.tempMoveCooldown = 0;
@@ -70,7 +79,7 @@ export class InputHandler {
     if (this.game.tempMoveCooldown > 0) return true;
 
     this.processMove(Math.sign(dx), Math.sign(dy));
-    this.game.tempMoveCooldown = Math.max(40, Math.round(MOVE_COOLDOWN_BASE / this.game.state.player.effectiveMoveSpeed));
+    this.game.tempMoveCooldown = Math.max(40, Math.round(MOVE_COOLDOWN_BASE / this.game.state.player.moveSpeed));
     return true;
   }
 
@@ -97,10 +106,9 @@ export class InputHandler {
   }
 
   private tryEnemyCollision(nx: number, ny: number): boolean {
-    const s = this.game.state;
-    const enemy = s.enemies.find(e2 => e2.x === nx && e2.y === ny && e2.isAlive);
+    const enemy = this.game.projectileSystem.enemyAt(nx, ny);
     if (enemy) {
-      this.game.combatSystem.meleeAttack(s.player, enemy);
+      this.game.combatSystem.meleeAttack(this.game.state.player, enemy);
       this.game.endTurn();
       return true;
     }

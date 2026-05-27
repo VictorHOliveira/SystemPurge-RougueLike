@@ -55,9 +55,9 @@ export const ENEMY_TEMPLATES: EnemyTemplate[] = [
   },
   {
     name: 'ransomware.exe',
-    hp: 3,
+    hp: 12,
     attack: 0,
-    defense: 0,
+    defense: 3,
     color: 0xff0044,
     textureKey: 'enemy_ransomware',
     behavior: 'suicide',

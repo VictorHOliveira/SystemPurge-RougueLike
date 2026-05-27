@@ -19,7 +19,7 @@ export class ProjectileSystem {
 
   private enemyGrid: (Enemy | null)[][] = [];
   private isDaemon: boolean = false;
-  private gridOccupied: { x: number; y: number }[] = [];
+  private gridOccupied: number[] = [];
 
   private projPool: Phaser.GameObjects.Image[] = [];
   private projPoolIdx = 0;
@@ -49,25 +49,34 @@ export class ProjectileSystem {
   rebuildEnemyGrid() {
     const { enemies } = this.state;
     this.isDaemon = this.state.classId === 'daemon';
-    for (const cell of this.gridOccupied) {
-      this.enemyGrid[cell.y][cell.x] = null;
+    this.updateProjectileTexture();
+    for (const packed of this.gridOccupied) {
+      const x = packed & 0xFFFF;
+      const y = packed >>> 16;
+      this.enemyGrid[y][x] = null;
     }
     this.gridOccupied.length = 0;
     for (const e of enemies) {
       if (e.isAlive) {
         this.enemyGrid[e.y][e.x] = e;
-        this.gridOccupied.push({ x: e.x, y: e.y });
+        this.gridOccupied.push((e.y << 16) | e.x);
       }
     }
   }
 
-  private enemyAt(x: number, y: number): Enemy | null {
+  enemyAt(x: number, y: number): Enemy | null {
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return null;
     return this.enemyGrid[y]?.[x] ?? null;
   }
 
+  private _projTexture: string = 'projectile_player';
+
+  private updateProjectileTexture() {
+    this._projTexture = this.isDaemon ? 'projectile_daemon' : 'projectile_player';
+  }
+
   get projectileTexture(): string {
-    return this.isDaemon ? 'projectile_daemon' : 'projectile_player';
+    return this._projTexture;
   }
 
   getDirEnemy(dx: number, dy: number): { x: number; y: number; enemy: Enemy | null } {
@@ -86,7 +95,6 @@ export class ProjectileSystem {
 
   fireProjectile(dx: number, dy: number) {
     this.projPoolIdx = 0;
-    for (const p of this.projPool) p.setVisible(false);
     const { map, player, messageLog } = this.state;
 
     const pierce = player.classDef.projectilesPierce;

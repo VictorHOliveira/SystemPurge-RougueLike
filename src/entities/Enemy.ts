@@ -4,6 +4,7 @@ import { EnemyTemplate, type EnemyBehavior } from '../data/enemies';
 let nextId = 1;
 
 export class Enemy extends Entity {
+  readonly isEnemy = true as const;
   static resetId() { nextId = 1; }
 
   xpValue: number;

@@ -4,7 +4,7 @@ import { sound } from '../audio/SoundManager';
 import { loadBindings, displayKey } from '../data/keybindings';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { loadMeta, saveMeta } from '../utils/metaSave';
-import { CLASS_UNLOCK_COST } from '../data/metaUpgrades';
+import { CLASS_FLOOR_UNLOCK } from '../data/metaUpgrades';
 
 export class ClassSelectScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -135,10 +135,10 @@ export class ClassSelectScene extends Phaser.Scene {
 
     const meta = loadMeta();
     const unlocked = meta.unlocks[c.id] ?? false;
-    const lockCost = CLASS_UNLOCK_COST[c.id];
+    const reqFloor = CLASS_FLOOR_UNLOCK[c.id];
 
     if (!unlocked) {
-      this.add.text(cx + w / 2, y + h - 30, lockCost ? `\u{1F512} ${lockCost} Bits` : '\u{1F512}', {
+      this.add.text(cx + w / 2, y + h - 30, reqFloor ? `\u{1F512} Andar ${reqFloor}` : '\u{1F512}', {
         fontFamily: FONT,
         fontSize: '16px',
         color: COLORS.gold,
@@ -184,15 +184,7 @@ export class ClassSelectScene extends Phaser.Scene {
     const meta = loadMeta();
 
     if (!meta.unlocks[classDef.id]) {
-      const cost = CLASS_UNLOCK_COST[classDef.id];
-      if (!cost || meta.bits < cost) {
-        sound.select();
-        return;
-      }
-      meta.bits -= cost;
-      meta.unlocks[classDef.id] = true;
-      saveMeta(meta);
-      this.scene.restart();
+      sound.select();
       return;
     }
 

@@ -77,7 +77,7 @@ export class UpgradeScene extends Phaser.Scene {
     overlay.fillRect(0, 0, 1024, 640);
 
     const titleText = (this.scene.settings.data as Record<string, unknown>)?.title as string | undefined;
-    const title = titleText ?? (this.mode === 'reveal' ? 'BAU DE RECOMPENSA' : 'RECOMPENSA DO SISTEMA');
+    const title = titleText ?? (this.mode === 'reveal' ? 'BAÚ DE RECOMPENSA' : 'RECOMPENSA DO SISTEMA');
     const titleColor = this.mode === 'reveal' ? COLORS.gold : COLORS.accent;
     this.add.text(480, 100, title, {
       fontFamily: FONT,

@@ -60,7 +60,7 @@ export class GameOverScene extends Phaser.Scene {
       `Processo: ${this.playerName}`,
       `Classe: ${this.className}`,
       `Profundidade: /system/${this.stats.floor}`,
-      `Nivel: ${this.stats.level}`,
+      `Nível: ${this.stats.level}`,
       `Abates: ${this.stats.kills}`,
     ];
     statsLines.forEach((line, i) => {

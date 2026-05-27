@@ -31,15 +31,15 @@ export class MainMenuScene extends Phaser.Scene {
 
   private playBootSequence() {
     const lines = [
-      { text: 'SISTEMA DE INICIALIZACAO v0.1', color: COLORS.subtitle },
+      { text: 'SISTEMA DE INICIALIZAÇÃO v0.1', color: COLORS.subtitle },
       { text: 'Verificando integridade do kernel... OK', color: COLORS.muted },
-      { text: 'Carregando modulos do sistema:', color: COLORS.muted },
+      { text: 'Carregando módulos do sistema:', color: COLORS.muted },
       { text: '  modulos/crypt/crc32.sys        [OK]', color: COLORS.bootText },
       { text: '  modulos/net/tcpip.sys          [OK]', color: COLORS.bootText },
       { text: '  modulos/fs/vfat.sys            [OK]', color: COLORS.bootText },
       { text: '  modulos/sec/firewall.sys       [OK]', color: COLORS.bootText },
       { text: 'Drivers de hardware... OK', color: COLORS.muted },
-      { text: 'Memoria: 1024 KB OK', color: COLORS.muted },
+      { text: 'Memória: 1024 KB OK', color: COLORS.muted },
       { text: '', color: COLORS.muted },
       { text: 'SISTEMA PRONTO.', color: COLORS.accent },
       { text: '', color: COLORS.muted },
@@ -93,9 +93,10 @@ export class MainMenuScene extends Phaser.Scene {
     div.lineBetween(256, 165, 768, 165);
 
     this.addButton(512, 220, '[ INICIAR ]', COLORS.accent, () => this.startGame());
-    this.addButton(512, 275, '[ LOJA ]', COLORS.gold, () => this.openShop());
-    this.addButton(512, 330, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
-    this.addButton(512, 385, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
+    this.addButton(512, 265, '[ LOJA ]', COLORS.gold, () => this.openShop());
+    this.addButton(512, 310, '[ COMPÊNDIO ]', COLORS.subtitle, () => this.openCompendium());
+    this.addButton(512, 355, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(512, 400, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
 
     const meta = loadMeta();
     this.bitsText = this.add.text(512, 440, `Bits: ${meta.bits}`, {
@@ -174,6 +175,10 @@ export class MainMenuScene extends Phaser.Scene {
     }
   }
 
+  private openCompendium() {
+    this.scene.start('Compendium', { returnScene: 'MainMenu' });
+  }
+
   private showControls() {
     this.scene.pause();
     this.scene.launch('KeyBind', { returnScene: 'MainMenu' });
@@ -216,14 +221,14 @@ export class MainMenuScene extends Phaser.Scene {
     const info = [
       `System Purge v${version}`,
       '',
-      'Um roguelike de terminal onde voce',
-      'elimina ameacas do sistema operacional',
+      'Um roguelike de terminal onde você',
+      'elimina ameaças do sistema operacional',
       'e purga o kernel de rootkits.',
       '',
       'Tecnologias: Phaser 3 + rot-js + TypeScript',
       '',
       'Victor Oliveira',
-      'Participacao especial de Helena Oliveira',
+      'Participação especial de Helena Oliveira',
     ];
     info.forEach((line, i) => {
       const t = this.add.text(512, 220 + i * 20, line, {

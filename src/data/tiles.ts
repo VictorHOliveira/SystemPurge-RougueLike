@@ -8,6 +8,9 @@ export enum TileType {
   BURNED = 6,
 }
 
+const WALKABLE_TILES = new Set([TileType.FLOOR, TileType.STAIRS_DOWN, TileType.STAIRS_UP, TileType.TRAP, TileType.ALTAR, TileType.BURNED]);
+const TRANSPARENT_TILES = new Set([TileType.FLOOR, TileType.STAIRS_DOWN, TileType.STAIRS_UP, TileType.TRAP, TileType.ALTAR, TileType.BURNED]);
+
 export function tileName(type: TileType): string {
   switch (type) {
     case TileType.WALL: return 'wall';
@@ -21,9 +24,9 @@ export function tileName(type: TileType): string {
 }
 
 export function tileIsWalkable(type: TileType): boolean {
-  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP || type === TileType.TRAP || type === TileType.ALTAR || type === TileType.BURNED;
+  return WALKABLE_TILES.has(type);
 }
 
 export function tileIsTransparent(type: TileType): boolean {
-  return type === TileType.FLOOR || type === TileType.STAIRS_DOWN || type === TileType.STAIRS_UP || type === TileType.TRAP || type === TileType.ALTAR || type === TileType.BURNED;
+  return TRANSPARENT_TILES.has(type);
 }

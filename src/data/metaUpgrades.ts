@@ -60,10 +60,10 @@ export const META_UPGRADES: MetaUpgradeDef[] = [
   },
 ];
 
-export const CLASS_UNLOCK_COST: Record<string, number> = {
-  ping_sniper: 200,
-  muralha: 350,
-  daemon: 500,
+export const CLASS_FLOOR_UNLOCK: Record<string, number> = {
+  ping_sniper: 10,
+  muralha: 20,
+  daemon: 30,
 };
 
 export function getMetaCost(def: MetaUpgradeDef, level: number): number {

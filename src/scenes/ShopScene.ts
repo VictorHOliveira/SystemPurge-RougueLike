@@ -47,7 +47,7 @@ export class ShopScene extends Phaser.Scene {
     overlay.fillStyle(0x000810);
     overlay.fillRect(0, 0, 1024, 640);
 
-    this.add.text(512, 40, '\u25c8 NUCLEO DO SISTEMA \u25c8', {
+    this.add.text(512, 40, '\u25c8 NÚCLEO DO SISTEMA \u25c8', {
       fontFamily: FONT,
       fontSize: '28px',
       color: COLORS.gold,

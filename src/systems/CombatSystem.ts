@@ -2,15 +2,18 @@ import Phaser from 'phaser';
 import { GameState } from './GameState';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
-import { TILE, ENCRYPTION_REDUCTION, LAMINA_BLEED_TICKS, LAMINA_BLEED_DMG, REFLECT_DAMAGE, isAdjacent } from '../constants';
-import { FONT, COLORS, FONT_SIZES } from '../theme';
+import { TILE, ENCRYPTION_REDUCTION, LAMINA_BLEED_TICKS, LAMINA_BLEED_DMG, REFLECT_DAMAGE } from '../constants';
+import { FONT } from '../theme';
 import { sound } from '../audio/SoundManager';
 import { Player } from '../entities/Player';
 import { MessageLog } from '../ui/MessageLog';
 
+const BLEED_BITS = ['0', '1'];
+
 export interface CombatCallbacks {
   onEnemyDeath: (enemy: Enemy) => void;
   spawnParticles: (x: number, y: number, tint: number, count?: number) => void;
+  enemyAt?: (x: number, y: number) => Enemy | null;
 }
 
 export class CombatSystem {
@@ -35,10 +38,13 @@ export class CombatSystem {
     }
   }
 
+  private getEnemyAt(x: number, y: number): Enemy | null {
+    return this.callbacks.enemyAt ? this.callbacks.enemyAt(x, y) : null;
+  }
+
   private getBleedText(): Phaser.GameObjects.Text {
     if (this.bleedPoolIdx < this.bleedTextPool.length) {
       const t = this.bleedTextPool[this.bleedPoolIdx++];
-      this.scene.tweens.killTweensOf(t);
       t.setVisible(true).setAlpha(1).setScale(1);
       return t;
     }
@@ -79,31 +85,36 @@ export class CombatSystem {
     if (dmg <= 0) return;
 
     const dealt = defender.takeDamage(dmg);
-    if (defender instanceof Enemy && dealt > 0) sound.play('enemy_hit');
+    const isEnemyDef = !isPlayerDef;
+    if (isEnemyDef && dealt > 0) sound.play('enemy_hit');
     messageLog.add(`${attacker.name} acerta ${defender.name} com ${dealt} de dano.`);
 
-    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy) {
+    if (isPlayerAtk && dealt > 0 && isEnemyDef) {
       this.callbacks.spawnParticles(defender.x, defender.y, 0x00ff88, 4);
       this.applyLifeSteal(player, messageLog);
-      this.applyBleed(player, defender, enemyBleeds, messageLog);
+      this.applyBleed(player, defender as Enemy, enemyBleeds, messageLog);
+      if (player.tempAtkCharges > 0) {
+        player.tempAtkCharges--;
+        if (player.tempAtkCharges === 0) player.tempAtkBonus = 0;
+      }
     }
 
     if (isPlayerDef) {
       this.applyReflect(attacker, player, dealt, messageLog);
+      if (player.tempDefCharges > 0) {
+        player.tempDefCharges--;
+        if (player.tempDefCharges === 0) player.tempDefBonus = 0;
+      }
     }
 
-    if (isPlayerAtk && dealt > 0 && defender instanceof Enemy && defender.isAlive) {
-      this.applyDoubleStrike(player, attacker, defender, messageLog);
+    if (isPlayerAtk && dealt > 0 && isEnemyDef && defender.isAlive) {
+      this.applyDoubleStrike(player, attacker, defender as Enemy, messageLog);
     }
 
-    if (isPlayerDef && !defender.isAlive && player.hasFatalGuard) {
-      defender.hp = 1;
-      player.fatalGuardUsed = true;
-      messageLog.add('Proteção do Setor de Boot! Sobreviveu com 1 HP.');
-    }
+    if (isPlayerDef) this.checkFatalGuard(player, dealt);
 
-    if (!defender.isAlive && defender instanceof Enemy) {
-      this.callbacks.onEnemyDeath(defender);
+    if (!defender.isAlive && isEnemyDef) {
+      this.callbacks.onEnemyDeath(defender as Enemy);
     }
   }
 
@@ -111,6 +122,7 @@ export class CombatSystem {
     const { player } = this.state;
 
     if (isPlayerAtk && !isProjectile && !player.classDef.canMelee) return 0;
+    if (isPlayerDef && player.fatalGuardTriggered) return 0;
 
     let atkVal = isPlayerAtk ? player.effectiveAtk : attacker.attack;
     let defVal = isPlayerDef ? player.effectiveDef : defender.defense;
@@ -127,6 +139,9 @@ export class CombatSystem {
 
     if (isPlayerDef && player.isDefenseBuffed) {
       dmg = Math.floor(dmg * 0.5);
+      if (player.defenseBuffCharges > 0) {
+        player.defenseBuffCharges--;
+      }
     }
 
     dmg = Math.max(0, dmg);
@@ -156,12 +171,14 @@ export class CombatSystem {
   }
 
   private applyReflect(attacker: Entity, player: Player, dealt: number, messageLog: MessageLog) {
-    if (player.reflectBuffRemaining > 0 && dealt > 0) {
+    const isEnemyAtk = !(attacker === player);
+    if (player.reflectBuffCharges > 0 && dealt > 0) {
       const rdmg = attacker.takeDamage(dealt);
       if (rdmg > 0) messageLog.add(`Espelhamento refletiu ${rdmg} de dano!`);
-      if (!attacker.isAlive && attacker instanceof Enemy) {
-        this.callbacks.onEnemyDeath(attacker);
+      if (!attacker.isAlive && isEnemyAtk) {
+        this.callbacks.onEnemyDeath(attacker as Enemy);
       }
+      player.reflectBuffCharges--;
       return;
     }
     const upgradeRc = player.reflectChance;
@@ -171,17 +188,16 @@ export class CombatSystem {
     if (totalRc > 0 && dealt > 0 && Math.random() < totalRc) {
       const rdmg = attacker.takeDamage(REFLECT_DAMAGE);
       if (rdmg > 0) messageLog.add(`Dano refletido: ${rdmg} (${Math.round(totalRc * 100)}%).`);
-      if (!attacker.isAlive && attacker instanceof Enemy) {
-        this.callbacks.onEnemyDeath(attacker);
+      if (!attacker.isAlive && isEnemyAtk) {
+        this.callbacks.onEnemyDeath(attacker as Enemy);
       }
     }
   }
 
   private applyDoubleStrike(player: Player, attacker: Entity, defender: Enemy, messageLog: MessageLog) {
     if (player.acquiredUpgrades.has('golpe_duplo') && Math.random() < 0.3) {
-      const atkVal = player.effectiveAtk;
-      const defVal = player.classDef.ignoreDefense ? 0 : defender.defense;
-      const dmg2 = Math.max(1, atkVal - defVal);
+      const dmg2 = this.calcDamage(attacker, defender, true, false, false);
+      if (dmg2 <= 0) return;
       const dealt2 = defender.takeDamage(dmg2);
       messageLog.add(`Golpe Duplo! +${dealt2} de dano.`);
       sound.play('enemy_hit');
@@ -189,49 +205,79 @@ export class CombatSystem {
     }
   }
 
+  private checkFatalGuard(player: Player, dealt: number) {
+    if (!player.isAlive && player.hasFatalGuard) {
+      player.hp = Math.ceil(player.maxHp * 0.25);
+      player.fatalGuardUsed = true;
+      player.fatalGuardTriggered = true;
+      this.state.messageLog.add('Proteção do Setor de Boot! Recuperou 25% da vida.');
+    }
+  }
+
   processAdjacentAttacks() {
-    const { player, enemies } = this.state;
+    const { player } = this.state;
     if (!player.isAlive) return;
 
-    for (const enemy of enemies) {
-      if (!enemy.isAlive) continue;
-      if (!player.isAlive) break;
-      if (isAdjacent(player.x, player.y, enemy.x, enemy.y)) {
-        this.meleeAttack(enemy, player);
+    const px = player.x;
+    const py = player.y;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const enemy = this.getEnemyAt(px + dx, py + dy);
+        if (enemy?.isAlive) {
+          this.meleeAttack(enemy, player);
+          if (!player.isAlive) return;
+        }
       }
     }
   }
 
   suicideExplosion(enemy: Enemy, player: Player) {
+    if (player.fatalGuardTriggered) return;
     const dmg = Math.max(3, enemy.attack * 2);
     const dealt = player.takeDamage(dmg);
     this.state.messageLog.add(`${enemy.name} EXPLODE causando ${dealt} de dano!`);
     sound.play('player_hit');
     this.callbacks.spawnParticles(enemy.x, enemy.y, 0xff2200, 12);
     enemy.hp = 0;
+    if (player.tempDefCharges > 0) {
+      player.tempDefCharges--;
+      if (player.tempDefCharges === 0) player.tempDefBonus = 0;
+    }
+    this.checkFatalGuard(player, dealt);
     if (!player.isAlive) this.state.messageLog.add(`${player.classDef.name} foi derrubado.`);
   }
 
   rangedAttack(enemy: Enemy, player: Player) {
+    if (player.fatalGuardTriggered) return;
     const dmg = Math.max(1, enemy.attack - player.effectiveDef);
     const dealt = player.takeDamage(dmg);
     this.state.messageLog.add(`${enemy.name} dispara em ${player.classDef.name}: ${dealt} de dano.`);
     sound.play('player_hit');
     this.callbacks.spawnParticles(player.x, player.y, 0xff8800, 5);
+    if (player.tempDefCharges > 0) {
+      player.tempDefCharges--;
+      if (player.tempDefCharges === 0) player.tempDefBonus = 0;
+    }
+    this.checkFatalGuard(player, dealt);
     if (!player.isAlive) this.state.messageLog.add(`${player.classDef.name} foi derrubado.`);
   }
 
   processClassPressure() {
-    const { player, enemies, messageLog } = this.state;
+    const { player, messageLog } = this.state;
     let pd = player.classDef.pressureDamage;
     if (pd <= 0) return;
     if (player.acquiredUpgrades.has('campo_pressurizado')) pd += 1;
-    for (const e of enemies) {
-      if (!e.isAlive) continue;
-      if (Math.abs(player.x - e.x) + Math.abs(player.y - e.y) !== 1) continue;
-      e.takeDamage(pd);
-      messageLog.add(`Pressao de Pacotes: ${e.name} tomou ${pd} de dano.`);
-      if (!e.isAlive) this.callbacks.onEnemyDeath(e);
+    const px = player.x;
+    const py = player.y;
+    const dirs: [number, number][] = [[0,-1],[0,1],[-1,0],[1,0]];
+    for (const [dx, dy] of dirs) {
+      const e = this.getEnemyAt(px + dx, py + dy);
+      if (e?.isAlive) {
+        e.takeDamage(pd);
+        messageLog.add(`Pressão de Pacotes: ${e.name} tomou ${pd} de dano.`);
+        if (!e.isAlive) this.callbacks.onEnemyDeath(e);
+      }
     }
   }
 
@@ -247,14 +293,13 @@ export class CombatSystem {
       enemy.takeDamage(bleed.damage);
       messageLog.add(`${enemy.name} sangra: ${bleed.damage} de dano.`);
 
-      const bits = ['0', '1'];
       for (let i = 0; i < 3; i++) {
         const bit = this.getBleedText();
         bit.setPosition(
           enemy.x * TILE + Phaser.Math.Between(4, 28),
           enemy.y * TILE + Phaser.Math.Between(0, 8),
         );
-        bit.setText(bits[Math.floor(Math.random() * bits.length)]);
+        bit.setText(BLEED_BITS[Math.floor(Math.random() * BLEED_BITS.length)]);
         this.scene.tweens.add({
           targets: bit,
           y: bit.y - Phaser.Math.Between(16, 32),

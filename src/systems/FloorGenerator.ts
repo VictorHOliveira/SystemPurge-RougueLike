@@ -24,7 +24,7 @@ export class FloorGenerator {
   generateFloor(forceNewPlayer: boolean = false) {
     const result = this.initMap(forceNewPlayer);
     const floorMult = 1 + (this.state.player.floor - 1) * 0.075;
-    const occupiedPositions = new Set<string>();
+    const occupiedPositions = new Set<number>();
     const corridorTiles = this.collectCorridorTiles(result.rooms);
 
     this.selectSpecialRooms(result.rooms);
@@ -36,9 +36,12 @@ export class FloorGenerator {
 
   spawnFragments(x: number, y: number) {
     const dirs: [number, number][] = [[-1,0],[1,0],[0,-1],[0,1]];
-    const shuffled = [...dirs].sort(() => Math.random() - 0.5);
+    for (let i = dirs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+    }
     let spawned = 0;
-    for (const [dx, dy] of shuffled) {
+    for (const [dx, dy] of dirs) {
       if (spawned >= 2) break;
       const nx = x + dx;
       const ny = y + dy;
@@ -134,7 +137,7 @@ export class FloorGenerator {
     }
   }
 
-  private spawnEnemies(rooms: GameMap['rooms'], corridorTiles: { x: number; y: number }[], floorMult: number, occupiedPositions: Set<string>) {
+  private spawnEnemies(rooms: GameMap['rooms'], corridorTiles: { x: number; y: number }[], floorMult: number, occupiedPositions: Set<number>) {
     for (let i = 1; i < rooms.length; i++) {
       const r = rooms[i];
       if (r.cx === this.state.player.x && r.cy === this.state.player.y) continue;
@@ -144,7 +147,7 @@ export class FloorGenerator {
 
       for (let e = 0; e < spawnCount; e++) {
         const pos = this.randomSpawnPos(r, e, occupiedPositions);
-        occupiedPositions.add(`${pos.x},${pos.y}`);
+        occupiedPositions.add(pos.y * MAP_W + pos.x);
         this.createEnemy(pos, i, floorMult);
       }
     }
@@ -152,7 +155,7 @@ export class FloorGenerator {
     this.spawnCorridorEnemies(corridorTiles, occupiedPositions, floorMult);
   }
 
-  private spawnCorridorEnemies(corridorTiles: { x: number; y: number }[], occupiedPositions: Set<string>, floorMult: number) {
+  private spawnCorridorEnemies(corridorTiles: { x: number; y: number }[], occupiedPositions: Set<number>, floorMult: number) {
     const corridorCount = Math.floor(this.state.player.floor / 5);
     if (corridorCount === 0) return;
 
@@ -160,7 +163,7 @@ export class FloorGenerator {
     let placed = 0;
     for (const tile of shuffled) {
       if (placed >= corridorCount) break;
-      const key = `${tile.x},${tile.y}`;
+      const key = tile.y * MAP_W + tile.x;
       if (!occupiedPositions.has(key)) {
         occupiedPositions.add(key);
         this.createEnemy(tile, -1, floorMult);
@@ -169,25 +172,32 @@ export class FloorGenerator {
     }
   }
 
-  private scatterTraps(rooms: GameMap['rooms'], occupiedPositions: Set<string>) {
+  private scatterTraps(rooms: GameMap['rooms'], occupiedPositions: Set<number>) {
     const trapCount = 2 + Math.floor(this.state.player.floor / 2);
-    const candidates: { x: number; y: number }[] = [];
+    const selected: { x: number; y: number }[] = [];
 
     const startRoom = rooms[0];
+    const map = this.state.map;
+    let scanned = 0;
+
     for (let y = 0; y < MAP_H; y++) {
       for (let x = 0; x < MAP_W; x++) {
-        if (this.state.map.tiles[y][x] !== TileType.FLOOR) continue;
-        if (occupiedPositions.has(`${x},${y}`)) continue;
+        if (map.tiles[y][x] !== TileType.FLOOR) continue;
+        if (occupiedPositions.has(y * MAP_W + x)) continue;
         if (x >= startRoom.x && x < startRoom.x + startRoom.w && y >= startRoom.y && y < startRoom.y + startRoom.h) continue;
-        candidates.push({ x, y });
+        scanned++;
+        if (selected.length < trapCount) {
+          selected.push({ x, y });
+        } else {
+          const j = Math.floor(Math.random() * scanned);
+          if (j < trapCount) selected[j] = { x, y };
+        }
       }
     }
 
-    const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-    for (let i = 0; i < Math.min(trapCount, shuffled.length); i++) {
-      const t = shuffled[i];
-      this.state.map.setTile(t.x, t.y, TileType.TRAP);
-      occupiedPositions.add(`${t.x},${t.y}`);
+    for (const t of selected) {
+      map.setTile(t.x, t.y, TileType.TRAP);
+      occupiedPositions.add(t.y * MAP_W + t.x);
     }
   }
 
@@ -201,47 +211,52 @@ export class FloorGenerator {
     const isBossRoom = idx === this.state.bossRoomIdx;
     const isMinibossRoom = idx === this.state.minibossRoomIdx;
     if (isBossRoom || isMinibossRoom) return 0;
-    return 1 + Math.floor(this.state.player.floor / 3);
+    return Math.min(5, 1 + Math.floor(this.state.player.floor / 3));
   }
 
-  private randomSpawnPos(r: { x: number; y: number; w: number; h: number; cx: number; cy: number }, eIdx: number, occupiedPositions: Set<string>): { x: number; y: number } {
+  private randomSpawnPos(r: { x: number; y: number; w: number; h: number; cx: number; cy: number }, eIdx: number, occupiedPositions: Set<number>): { x: number; y: number } {
     if (eIdx === 0) return { x: r.cx, y: r.cy };
+    const maxX = Math.max(1, r.w - 2);
+    const maxY = Math.max(1, r.h - 2);
     for (let attempt = 0; attempt < 10; attempt++) {
-      const tx = r.x + 1 + Math.floor(Math.random() * Math.max(1, r.w - 2));
-      const ty = r.y + 1 + Math.floor(Math.random() * Math.max(1, r.h - 2));
-      if (!occupiedPositions.has(`${tx},${ty}`)) return { x: tx, y: ty };
+      const tx = r.x + 1 + Math.floor(Math.random() * maxX);
+      const ty = r.y + 1 + Math.floor(Math.random() * maxY);
+      if (!occupiedPositions.has(ty * MAP_W + tx)) return { x: tx, y: ty };
     }
     return { x: r.cx, y: r.cy };
   }
 
   private createEnemy(pos: { x: number; y: number }, roomIdx: number, floorMult: number) {
     if (roomIdx === this.state.bossRoomIdx) {
+      const floor = this.state.player.floor;
       const scaled = {
         ...BOSS_TEMPLATE,
-        hp: Math.ceil(BOSS_TEMPLATE.hp * floorMult + this.state.player.maxHp * 1.2),
-        attack: Math.ceil(BOSS_TEMPLATE.attack * floorMult + this.state.player.effectiveAtk * 1.5),
-        defense: Math.ceil(BOSS_TEMPLATE.defense * floorMult + this.state.player.effectiveDef * 1.2),
+        hp: Math.ceil(BOSS_TEMPLATE.hp * floorMult + floor * 5),
+        attack: Math.ceil(BOSS_TEMPLATE.attack * floorMult + floor * 2),
+        defense: Math.ceil(BOSS_TEMPLATE.defense * floorMult + floor * 0.5),
       };
       const e = new Enemy(scaled, pos.x, pos.y);
       e.setTarget(this.state.player.x, this.state.player.y);
       this.state.enemies.push(e);
     } else if (roomIdx === this.state.minibossRoomIdx) {
+      const floor = this.state.player.floor;
       const scaled = {
         ...MINIBOSS_TEMPLATE,
-        hp: Math.ceil(MINIBOSS_TEMPLATE.hp * floorMult + this.state.player.maxHp * 0.25),
-        attack: Math.ceil(MINIBOSS_TEMPLATE.attack * floorMult + this.state.player.effectiveAtk * 0.35),
-        defense: Math.ceil(MINIBOSS_TEMPLATE.defense * floorMult + this.state.player.effectiveDef * 0.3),
+        hp: Math.ceil(MINIBOSS_TEMPLATE.hp * floorMult + floor * 3),
+        attack: Math.ceil(MINIBOSS_TEMPLATE.attack * floorMult + floor * 1),
+        defense: Math.ceil(MINIBOSS_TEMPLATE.defense * floorMult + floor * 0.3),
       };
       const e = new Enemy(scaled, pos.x, pos.y);
       e.setTarget(this.state.player.x, this.state.player.y);
       this.state.enemies.push(e);
     } else {
-      const t = randomEnemyTemplate(this.state.player.floor);
+      const floor = this.state.player.floor;
+      const t = randomEnemyTemplate(floor);
       const scaled = {
         ...t,
-        hp: Math.ceil(t.hp * floorMult + this.state.player.maxHp * 0.15),
-        attack: Math.ceil(t.attack * floorMult + this.state.player.effectiveAtk * 0.25),
-        defense: Math.ceil(t.defense * floorMult + this.state.player.effectiveDef * 0.2),
+        hp: Math.ceil(t.hp * floorMult + floor * 1.5),
+        attack: Math.ceil(t.attack * floorMult + floor * 0.5),
+        defense: Math.ceil(t.defense * floorMult + floor * 0.2),
       };
       const e = new Enemy(scaled, pos.x, pos.y);
       if (roomIdx !== -1 && Math.random() < 0.15) {

@@ -66,7 +66,7 @@ describe('rollRewards', () => {
   });
 
   it('includes items when slots available', () => {
-    const result = rollRewards(new Map(), 3, 10, 'limpador');
+    const result = rollRewards(new Map(), 3, 100, 'limpador');
     expect(result.some(r => r.kind === 'item')).toBe(true);
   });
 

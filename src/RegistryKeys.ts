@@ -27,4 +27,5 @@ export const RegistryKeys = {
   unlockedSlots: 'unlockedSlots',
   hud: '_hud',
   restartPending: 'restartPending',
+  hasFatalGuard: 'hasFatalGuard',
 } as const;

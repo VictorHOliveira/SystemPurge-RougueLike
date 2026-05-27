@@ -13,26 +13,28 @@ export class Player extends Entity {
   acquiredUpgrades: Map<string, number> = new Map();
   inventory: (string | null)[] = [];
   tempAtkBonus: number = 0;
-  tempAtkRemaining: number = 0;
+  tempAtkCharges: number = 0;
   tempDefBonus: number = 0;
-  tempDefRemaining: number = 0;
+  tempDefCharges: number = 0;
   bonusFov: number = 0;
   moveSpeed: number;
   fatalGuardUsed: boolean = false;
+  fatalGuardTriggered: boolean = false;
   encryptionLayerUsed: boolean = false;
   regenTicker: number = 0;
   regenAccum: number = 0;
+  hasRegenCached: boolean = false;
 
   cooldowns: number[] = [];
   cooldownReduction: number = 0;
-  defenseBuffRemaining: number = 0;
+  defenseBuffCharges: number = 0;
   bleedTicks: number = 0;
   bleedDamage: number = 0;
   hasUsedAbility: boolean = false;
   extraBleedDamage: number = 0;
   overflowRange: number = 2;
   shieldNextHit: boolean = false;
-  reflectBuffRemaining: number = 0;
+  reflectBuffCharges: number = 0;
 
   constructor(classDef: PlayerClass, x: number, y: number) {
     super('player', classDef.name, x, y, classDef.hp, classDef.attack, classDef.defense, classDef.textureKey);
@@ -129,7 +131,7 @@ export class Player extends Entity {
   }
 
   get isDefenseBuffed(): boolean {
-    return this.defenseBuffRemaining > 0;
+    return this.defenseBuffCharges > 0;
   }
 
   get isBleeding(): boolean {
@@ -172,24 +174,11 @@ export class Player extends Entity {
     this.acquiredUpgrades.set(id, curLevel + 1);
     const fn = UPGRADE_APPLY[id];
     if (fn) fn(this, this.level);
+    if (id === 'cache_partition') this.hasRegenCached = true;
   }
 
   processTurnEnd(): void {
-    if (this.tempAtkRemaining > 0) {
-      this.tempAtkRemaining--;
-      if (this.tempAtkRemaining === 0) this.tempAtkBonus = 0;
-    }
-    if (this.tempDefRemaining > 0) {
-      this.tempDefRemaining--;
-      if (this.tempDefRemaining === 0) this.tempDefBonus = 0;
-    }
-    if (this.defenseBuffRemaining > 0) {
-      this.defenseBuffRemaining--;
-    }
-    if (this.reflectBuffRemaining > 0) {
-      this.reflectBuffRemaining--;
-    }
-
+    this.fatalGuardTriggered = false;
     this.hasUsedAbility = false;
     for (let i = 0; i < this.cooldowns.length; i++) {
       if (this.cooldowns[i] > 0) this.cooldowns[i]--;
@@ -201,13 +190,13 @@ export class Player extends Entity {
       this.bleedTicks--;
     }
 
-    if (!this.hasRegen) return;
+    if (!this.hasRegenCached) return;
     this.regenTicker++;
     if (this.regenTicker >= 6) {
       this.regenTicker = 0;
-      this.regenAccum += 0.3;
-      if (this.regenAccum >= 1) {
-        this.regenAccum -= 1;
+      this.regenAccum += 3;
+      if (this.regenAccum >= 10) {
+        this.regenAccum -= 10;
         this.hp = Math.min(this.maxHp, this.hp + 1);
       }
     }

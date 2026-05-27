@@ -27,6 +27,7 @@ export interface ActionCallbacks {
   getDirEnemy: (dx: number, dy: number) => { x: number; y: number; enemy: Enemy | null };
   onAnimationStart: () => void;
   onAnimationEnd: () => void;
+  onMapRevealed?: () => void;
   endTurn: () => void;
 }
 
@@ -121,17 +122,18 @@ export class ActionSystem {
           }
         }
         fov.compute(map, player.x, player.y);
+        this.callbacks.onMapRevealed?.();
         messageLog.add('Packet Sniffer: mapa revelado.');
         break;
       case 'overclock_inject':
         player.tempAtkBonus = 5;
-        player.tempAtkRemaining = 5;
-        messageLog.add('Overclock Inject: ATQ +5 por 5 turnos.');
+        player.tempAtkCharges = 5;
+        messageLog.add('Overclock Inject: ATQ +5 por 5 ataques.');
         break;
       case 'defrag_shield':
         player.tempDefBonus = 5;
-        player.tempDefRemaining = 5;
-        messageLog.add('Defrag Shield: DEF +5 por 5 turnos.');
+        player.tempDefCharges = 5;
+        messageLog.add('Defrag Shield: DEF +5 por 5 ataques.');
         break;
     }
 
@@ -264,8 +266,8 @@ export class ActionSystem {
   }
 
   private doDefenseBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
-    player.defenseBuffRemaining = ability.duration ?? 3;
-    messageLog.add(`Criptografia Total: dano reduzido 50% por ${player.defenseBuffRemaining} turnos.`);
+    player.defenseBuffCharges = ability.duration ?? 3;
+    messageLog.add(`Criptografia Total: dano reduzido 50% por ${player.defenseBuffCharges} ataques.`);
   }
 
   private doAoeDamage(ability: ClassAbility, player: Player, enemies: Enemy[], messageLog: MessageLog, enemyBleeds: Map<string, { ticks: number; damage: number }>) {
@@ -346,7 +348,7 @@ export class ActionSystem {
         onComplete: () => { beam.clear(); beam.setVisible(false); },
       });
     } else {
-      messageLog.add('Nenhum inimigo alcancavel.');
+      messageLog.add('Nenhum inimigo alcançável.');
     }
   }
 
@@ -359,8 +361,8 @@ export class ActionSystem {
 
   private doSelfBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
     player.tempAtkBonus = ability.damage ?? 5;
-    player.tempAtkRemaining = ability.duration ?? 4;
-    messageLog.add(`Sobrecarga de Kernel: ATQ +${player.tempAtkBonus} por ${player.tempAtkRemaining} turnos.`);
+    player.tempAtkCharges = ability.duration ?? 4;
+    messageLog.add(`Sobrecarga de Kernel: ATQ +${player.tempAtkBonus} por ${player.tempAtkCharges} ataques.`);
   }
 
   private doShield(ability: ClassAbility, player: Player, messageLog: MessageLog) {
@@ -392,8 +394,8 @@ export class ActionSystem {
   }
 
   private doReflectBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
-    player.reflectBuffRemaining = ability.duration ?? 2;
-    messageLog.add(`Espelhamento: 100% de refletir dano por ${player.reflectBuffRemaining} turnos.`);
+    player.reflectBuffCharges = ability.duration ?? 2;
+    messageLog.add(`Espelhamento: 100% de refletir dano por ${player.reflectBuffCharges} ataques.`);
   }
 
   openChest(x: number, y: number) {
