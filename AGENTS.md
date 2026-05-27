@@ -2,7 +2,7 @@
 
 ## Visão Geral
 Roguelike turn-based com tema de computador/vírus em web (Phaser 3 + TypeScript + rot.js). O jogador é `process.exe` e limpa diretórios (andares) infestados de malware.
-- **Versão**: 0.3.0
+- **Versão**: 0.4.0
 - **Canvas**: 1024×640 (640 game + 384 painel direito HUD)
 - **Tile**: 32×32 pixels
 - **Mapa**: 60×40 tiles
