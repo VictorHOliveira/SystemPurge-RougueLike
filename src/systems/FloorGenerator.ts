@@ -21,8 +21,8 @@ export class FloorGenerator {
     this.state = state;
   }
 
-  generateFloor(forceNewPlayer: boolean = false) {
-    const result = this.initMap(forceNewPlayer);
+  generateFloor(forceNewPlayer: boolean = false, startFloor: number = 0) {
+    const result = this.initMap(forceNewPlayer, startFloor);
     const floorMult = 1 + (this.state.player.floor - 1) * 0.075;
     const occupiedPositions = new Set<number>();
     const corridorTiles = this.collectCorridorTiles(result.rooms);
@@ -74,7 +74,7 @@ export class FloorGenerator {
     return tiles;
   }
 
-  private initMap(forceNewPlayer: boolean): ReturnType<typeof MapGen.generate> {
+  private initMap(forceNewPlayer: boolean, startFloor: number = 0): ReturnType<typeof MapGen.generate> {
     Enemy.resetId();
     const result = MapGen.generate(MAP_W, MAP_H);
     this.state.map = result.map;
@@ -83,6 +83,9 @@ export class FloorGenerator {
 
     if (!this.state.player || forceNewPlayer) {
       this.state.player = new Player(classDef, result.rooms[0].cx, result.rooms[0].cy);
+      if (startFloor > 1) {
+        this.state.player.floor = startFloor;
+      }
     } else {
       this.state.player.x = result.rooms[0].cx;
       this.state.player.y = result.rooms[0].cy;

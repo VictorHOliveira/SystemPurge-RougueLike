@@ -309,14 +309,29 @@ export class MainMenuScene extends Phaser.Scene {
     if (!cf) return;
     if (input.trim().toLowerCase() === 'i love you') {
       const meta = loadMeta();
-      meta.bits += 1000;
+      meta.bits += 50000;
       saveMeta(meta);
       cf.setColor(COLORS.gold);
-      cf.setText('1000 Bits adicionados!');
+      cf.setText('50000 Bits adicionados!');
       if (this.bitsText) this.bitsText.setText(`Bits: ${meta.bits}`);
     } else {
-      cf.setColor(COLORS.error);
-      cf.setText('\u2717 Comando inv\u00e1lido');
+      const match = input.trim().match(/^floor\s+(\d+)$/i);
+      if (match) {
+        const floor = parseInt(match[1], 10);
+        if (floor >= 2 && floor <= 100) {
+          const meta = loadMeta();
+          meta.startFloor = floor;
+          saveMeta(meta);
+          cf.setColor(COLORS.gold);
+          cf.setText(`Pr\u00f3ximo jogo come\u00e7ar\u00e1 no andar ${floor}!`);
+        } else {
+          cf.setColor(COLORS.error);
+          cf.setText('Use floor 2 a 100.');
+        }
+      } else {
+        cf.setColor(COLORS.error);
+        cf.setText('\u2717 Comando inv\u00e1lido');
+      }
     }
   }
 

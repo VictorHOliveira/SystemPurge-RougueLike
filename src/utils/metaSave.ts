@@ -10,6 +10,7 @@ export interface MetaProgress {
   unlocks: Record<string, boolean>;
   purchasedAbilities?: string[];
   activeAbilities?: string[];
+  startFloor?: number;
 }
 
 export function defaultMeta(): MetaProgress {
@@ -25,6 +26,7 @@ export function loadMeta(): MetaProgress {
         bits: typeof parsed.bits === 'number' ? parsed.bits : 0,
         upgrades: parsed.upgrades ?? {},
         unlocks: { ...defaultMeta().unlocks, ...(parsed.unlocks ?? {}) },
+        startFloor: typeof parsed.startFloor === 'number' ? parsed.startFloor : undefined,
         purchasedAbilities: parsed.purchasedAbilities ?? (parsed.purchasedAbility ? [parsed.purchasedAbility] : undefined),
         activeAbilities: parsed.activeAbilities ??
           (parsed.purchasedAbilities ? [...parsed.purchasedAbilities] :

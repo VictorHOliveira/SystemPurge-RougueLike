@@ -115,7 +115,25 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, 640, 640);
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
 
-    this.generateFloor();
+    const meta = loadMeta();
+    const startFloor = meta.startFloor ?? 0;
+    if (startFloor > 0) {
+      delete meta.startFloor;
+      saveMeta(meta);
+    }
+    this.generateFloor(true, startFloor);
+
+    if (startFloor > 1) {
+      const p = this.state.player;
+      let xpTotal = 0;
+      let xpToNext = 20;
+      for (let lvl = 1; lvl < startFloor; lvl++) {
+        xpTotal += xpToNext;
+        xpToNext = Math.floor(xpToNext * 1.5);
+      }
+      p.addXp(xpTotal);
+    }
+
     this.applyMetaUpgrades();
     this.loadActiveAbilities();
     this.syncStaticRegistry();
@@ -319,10 +337,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  generateFloor(forceNewPlayer: boolean = false) {
+  generateFloor(forceNewPlayer: boolean = false, startFloor: number = 0) {
     this.tempMoveCooldown = 0;
     this.renderSystem.destroyAll();
-    this.floorGenerator.generateFloor(forceNewPlayer);
+    this.floorGenerator.generateFloor(forceNewPlayer, startFloor);
     this.renderSystem.createRenderObjects(this.state.player.classDef.textureKey);
     this.renderSystem.createEnemySprites();
     this.projectileSystem.rebuildEnemyGrid();
