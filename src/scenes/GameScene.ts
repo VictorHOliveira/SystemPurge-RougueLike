@@ -93,6 +93,22 @@ export class GameScene extends Phaser.Scene {
       onAnimationEnd: () => { this.isAnimating = false; },
       onMapRevealed: () => this.renderSystem.markAllDirty(),
       endTurn: () => this.endTurn(),
+      onBossRewardsComplete: () => {
+        const meta = loadMeta();
+        const floor = this.state.player.floor;
+        let newUnlock: string | null = null;
+        for (const [classId, reqFloor] of Object.entries(CLASS_FLOOR_UNLOCK)) {
+          if (floor >= reqFloor && !meta.unlocks[classId]) {
+            meta.unlocks[classId] = true;
+            newUnlock = classId;
+          }
+        }
+        if (newUnlock) {
+          saveMeta(meta);
+          this.scene.pause();
+          this.scene.launch('ClassUnlock', { classId: newUnlock });
+        }
+      },
     });
     this.floorGenerator = new FloorGenerator(this, this.state);
 
@@ -286,21 +302,6 @@ export class GameScene extends Phaser.Scene {
       this.state.bossKilled = true;
       trackEvent('boss_kill', { floor: this.state.player.floor, level: this.state.player.level });
       this.actionSystem.showBossRewards();
-
-      const meta = loadMeta();
-      const floor = this.state.player.floor;
-      let newUnlock: string | null = null;
-      for (const [classId, reqFloor] of Object.entries(CLASS_FLOOR_UNLOCK)) {
-        if (floor >= reqFloor && !meta.unlocks[classId]) {
-          meta.unlocks[classId] = true;
-          newUnlock = classId;
-        }
-      }
-      if (newUnlock) {
-        saveMeta(meta);
-        this.scene.pause();
-        this.scene.launch('ClassUnlock', { classId: newUnlock });
-      }
     }
 
     if (enemy.textureKey === 'enemy_miniboss' && this.state.minibossRoomIdx !== -1) {

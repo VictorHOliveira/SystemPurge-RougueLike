@@ -29,6 +29,7 @@ export interface ActionCallbacks {
   onAnimationEnd: () => void;
   onMapRevealed?: () => void;
   endTurn: () => void;
+  onBossRewardsComplete?: () => void;
 }
 
 export class ActionSystem {
@@ -507,6 +508,7 @@ export class ActionSystem {
           } else {
             this.state.fov.setRadius(player.effectiveFov);
             this.state.fov.compute(this.state.map, player.x, player.y);
+            this.callbacks.onBossRewardsComplete?.();
           }
         },
       });
