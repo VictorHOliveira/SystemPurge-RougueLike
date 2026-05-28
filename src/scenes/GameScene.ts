@@ -1,12 +1,16 @@
 import Phaser from 'phaser';
 import { Enemy } from '../entities/Enemy';
-import type { FOVSystem } from '../systems/FOV';
+import { Player } from '../entities/Player';
+import { FOVSystem } from '../systems/FOV';
 import { RenderSystem } from '../systems/RenderSystem';
 import { CombatSystem } from '../systems/CombatSystem';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
 import { ActionSystem } from '../systems/ActionSystem';
 import { FloorGenerator } from '../systems/FloorGenerator';
 import { GameState } from '../systems/GameState';
+import { TurnSystem } from '../systems/TurnSystem';
+import { MessageLog } from '../ui/MessageLog';
+import { GameMap } from '../world/GameMap';
 import { TileType } from '../data/tiles';
 import { version } from '../../package.json';
 import { trackEvent } from '../analytics';
@@ -17,7 +21,9 @@ import { RegistryKeys } from '../RegistryKeys';
 import { META_UPGRADES, CLASS_FLOOR_UNLOCK } from '../data/metaUpgrades';
 import { loadMeta, saveMeta } from '../utils/metaSave';
 import { PURCHASABLE_ABILITIES } from '../data/purchasableAbilities';
-import { CLASSES } from '../data/classes';
+import { CLASSES, getClassById } from '../data/classes';
+import { saveRun, loadRunSave, deleteRunSave, restorePlayerFromSave, restoreMapFromSave, restoreEnemyBleeds, restoreChests } from '../utils/runSave';
+import type { EnemyTemplate } from '../data/enemies';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -36,8 +42,9 @@ export class GameScene extends Phaser.Scene {
   private occGrid: Uint8Array = new Uint8Array(MAP_H * MAP_W);
   private occGridDirty: number[] = [];
 
-  init(data?: { classId?: string }) {
+  init(data?: { classId?: string; loadFromSave?: boolean }) {
     if (data?.classId) this.classId = data.classId;
+    if (data?.loadFromSave) this.data.set('loadFromSave', true);
   }
 
   constructor() {
@@ -115,27 +122,34 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setViewport(0, 0, 640, 640);
     this.cameras.main.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
 
-    const meta = loadMeta();
-    const startFloor = meta.startFloor ?? 0;
-    if (startFloor > 0) {
-      delete meta.startFloor;
-      saveMeta(meta);
-    }
-    this.generateFloor(true, startFloor);
-
-    if (startFloor > 1) {
-      const p = this.state.player;
-      let xpTotal = 0;
-      let xpToNext = 20;
-      for (let lvl = 1; lvl < startFloor; lvl++) {
-        xpTotal += xpToNext;
-        xpToNext = Math.floor(xpToNext * 1.5);
+    if (this.data.get('loadFromSave')) {
+      if (!this.loadFromSave()) {
+        this.generateFloor(true);
       }
-      p.addXp(xpTotal);
+    } else {
+      const meta = loadMeta();
+      const startFloor = meta.startFloor ?? 0;
+      if (startFloor > 0) {
+        delete meta.startFloor;
+        saveMeta(meta);
+      }
+      this.generateFloor(true, startFloor);
+
+      if (startFloor > 1) {
+        const p = this.state.player;
+        let xpTotal = 0;
+        let xpToNext = 20;
+        for (let lvl = 1; lvl < startFloor; lvl++) {
+          xpTotal += xpToNext;
+          xpToNext = Math.floor(xpToNext * 1.5);
+        }
+        p.addXp(xpTotal);
+      }
+
+      this.applyMetaUpgrades();
+      this.loadActiveAbilities();
     }
 
-    this.applyMetaUpgrades();
-    this.loadActiveAbilities();
     this.syncStaticRegistry();
     this.syncRegistry();
 
@@ -337,6 +351,89 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private loadFromSave(): boolean {
+    const data = loadRunSave();
+    if (!data || data.version !== version) {
+      deleteRunSave();
+      return false;
+    }
+
+    this.renderSystem.destroyAll();
+
+    Enemy.resetId();
+
+    const map = new GameMap(MAP_W, MAP_H);
+    restoreMapFromSave(data, map);
+
+    this.state.map = map;
+    this.state.kills = data.game.kills;
+    this.state.chests = restoreChests(data);
+    this.state.bossRoomIdx = data.game.bossRoomIdx;
+    this.state.minibossRoomIdx = data.game.minibossRoomIdx;
+    this.state.altarRoomIdx = data.game.altarRoomIdx;
+    this.state.altarUsed = data.game.altarUsed;
+    this.state.bossKilled = data.game.bossKilled;
+    this.state.classId = data.player.classId;
+    this.classId = data.player.classId;
+
+    const classDef = getClassById(data.player.classId);
+    const p = new Player(classDef, data.player.x, data.player.y);
+    restorePlayerFromSave(data, p);
+    this.state.player = p;
+
+    this.state.enemies = [];
+    for (const eData of data.enemies) {
+      const template: EnemyTemplate = {
+        name: eData.name,
+        hp: eData.maxHp,
+        attack: eData.attack,
+        defense: eData.defense,
+        color: 0xffffff,
+        textureKey: eData.textureKey,
+        behavior: eData.behavior,
+        minFloor: 1,
+        splitOnDeath: eData.splitOnDeath,
+      };
+      const e = new Enemy(template, eData.x, eData.y);
+      e.hp = eData.hp;
+      e.maxHp = eData.maxHp;
+      e.isElite = eData.isElite;
+      e.skipNextTurn = eData.skipNextTurn;
+      e.xpValue = eData.xpValue;
+      this.state.enemies.push(e);
+    }
+
+    this.state.fov = new FOVSystem(p.effectiveFov);
+    this.state.turnSystem = new TurnSystem();
+    this.state.messageLog = new MessageLog();
+    for (const msg of data.game.messages) {
+      this.state.messageLog.messages.push(msg);
+    }
+
+    this.state.enemyBleeds = restoreEnemyBleeds(data, this.state.enemies);
+
+    this.renderSystem.createRenderObjects(p.classDef.textureKey);
+    this.renderSystem.createEnemySprites();
+
+    this.state.fov.compute(this.state.map, p.x, p.y, (x, y) => this.renderSystem.onTileVisibilityChange(x, y));
+
+    this.loadActiveAbilities();
+
+    for (let i = 0; i < Math.min(data.player.cooldowns.length, p.cooldowns.length); i++) {
+      p.cooldowns[i] = data.player.cooldowns[i];
+    }
+
+    this.projectileSystem.rebuildEnemyGrid();
+    this.combatSystem.rebuildEnemyMap();
+    this.renderSystem.markAllDirty();
+    this.renderSystem.redrawMap();
+    this.renderSystem.syncEntitySprites();
+    this.renderSystem.centerOnPlayer();
+
+    this.isAnimating = false;
+    return true;
+  }
+
   generateFloor(forceNewPlayer: boolean = false, startFloor: number = 0) {
     this.tempMoveCooldown = 0;
     this.renderSystem.destroyAll();
@@ -361,6 +458,8 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.state.messageLog.add(`SYSTEM PURGE v${version} — Kernel inicializado.`);
     }
+
+    saveRun(this.state);
 
     this.isAnimating = false;
   }

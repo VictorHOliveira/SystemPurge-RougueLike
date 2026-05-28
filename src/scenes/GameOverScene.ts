@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CLASSES } from '../data/classes';
 import { FONT, COLORS } from '../theme';
 import { loadMeta, saveMeta, calcBitsEarned } from '../utils/metaSave';
+import { deleteRunSave } from '../utils/runSave';
 
 const CLASS_NAMES: Record<string, string> = {};
 for (const c of CLASSES) {
@@ -30,6 +31,8 @@ export class GameOverScene extends Phaser.Scene {
   create() {
     this.selectedIndex = 0;
     this.buttons = [];
+
+    deleteRunSave();
 
     const meta = loadMeta();
     meta.bits += this.bitsEarned;

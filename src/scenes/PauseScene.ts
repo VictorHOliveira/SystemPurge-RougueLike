@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { sound } from '../audio/SoundManager';
 import { FONT, COLORS } from '../theme';
 import { loadMeta } from '../utils/metaSave';
+import { saveRun, deleteRunSave } from '../utils/runSave';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -53,10 +54,11 @@ export class PauseScene extends Phaser.Scene {
     this.addButton(320, 170, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
     this.addButton(320, 230, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
     this.addButton(320, 290, '[ Compêndio ]', COLORS.subtitle, () => this.openCompendium());
-    this.addButton(320, 350, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
-    this.addButton(320, 410, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
+    this.addButton(320, 350, '[ Salvar e Sair ]', COLORS.gold, () => this.saveAndQuit());
+    this.addButton(320, 410, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(320, 470, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
 
-    this.add.text(320, 480, 'Setas | ENTER | ESC', {
+    this.add.text(320, 530, 'Setas | ENTER | ESC', {
       fontFamily: FONT,
       fontSize: '11px',
       color: COLORS.dimText,
@@ -212,7 +214,29 @@ export class PauseScene extends Phaser.Scene {
     this.scene.stop();
   }
 
+  private getGameState(): any {
+    try {
+      const game = this.scene.get('Game') as any;
+      return game?.state ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveAndQuit() {
+    const state = this.getGameState();
+    if (state) {
+      saveRun(state);
+    }
+    this.registry.set('restartPending', false);
+    this.scene.stop('HUD');
+    this.scene.stop('Game');
+    this.scene.stop();
+    this.scene.start('MainMenu');
+  }
+
   private restartGame() {
+    deleteRunSave();
     this.registry.set('restartPending', true);
     this.scene.resume('Game');
     this.scene.resume('HUD');
@@ -220,6 +244,7 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private goToMainMenu() {
+    deleteRunSave();
     this.registry.set('restartPending', false);
     this.scene.stop('HUD');
     this.scene.stop('Game');

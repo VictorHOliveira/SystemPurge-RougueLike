@@ -3,6 +3,7 @@ import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { loadMeta, saveMeta, defaultMeta } from '../utils/metaSave';
+import { hasRunSave, deleteRunSave } from '../utils/runSave';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -92,20 +93,33 @@ export class MainMenuScene extends Phaser.Scene {
     div.lineStyle(1, 0x2a4a3a);
     div.lineBetween(256, 165, 768, 165);
 
-    this.addButton(512, 220, '[ INICIAR ]', COLORS.accent, () => this.startGame());
-    this.addButton(512, 265, '[ LOJA ]', COLORS.gold, () => this.openShop());
-    this.addButton(512, 310, '[ COMPÊNDIO ]', COLORS.subtitle, () => this.openCompendium());
-    this.addButton(512, 355, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
-    this.addButton(512, 400, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
+    const hasSave = hasRunSave();
+    let btnY = 220;
+
+    if (hasSave) {
+      this.addButton(512, btnY, '[ Continuar ]', COLORS.accent, () => this.continueGame());
+      btnY += 45;
+    }
+
+    this.addButton(512, btnY, '[ INICIAR ]', COLORS.accent, () => this.startGame());
+    btnY += 45;
+    this.addButton(512, btnY, '[ LOJA ]', COLORS.gold, () => this.openShop());
+    btnY += 45;
+    this.addButton(512, btnY, '[ COMPÊNDIO ]', COLORS.subtitle, () => this.openCompendium());
+    btnY += 45;
+    this.addButton(512, btnY, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
+    btnY += 45;
+    this.addButton(512, btnY, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
+    btnY += 45;
 
     const meta = loadMeta();
-    this.bitsText = this.add.text(512, 440, `Bits: ${meta.bits}`, {
+    this.bitsText = this.add.text(512, btnY + 5, `Bits: ${meta.bits}`, {
       fontFamily: FONT,
       fontSize: '14px',
       color: COLORS.accent,
     }).setOrigin(0.5);
 
-    this.add.text(512, 470, 'SETAS para navegar | ENTER para selecionar', {
+    this.add.text(512, btnY + 35, 'SETAS para navegar | ENTER para selecionar', {
       fontFamily: FONT,
       fontSize: '11px',
       color: COLORS.dimText,
@@ -472,7 +486,12 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.start('Shop');
   }
 
+  private continueGame() {
+    this.scene.start('Game', { loadFromSave: true });
+  }
+
   private startGame() {
+    deleteRunSave();
     this.scene.start('ClassSelect');
   }
 }
