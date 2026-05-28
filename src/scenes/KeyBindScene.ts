@@ -145,7 +145,11 @@ export class KeyBindScene extends Phaser.Scene {
     if (e.key === 'Escape') {
       sound.select();
       this.scene.stop();
-      if (this.returnScene) this.scene.resume(this.returnScene);
+      if (this.returnScene === 'Config') {
+        this.scene.wake('Config');
+      } else if (this.returnScene) {
+        this.scene.resume(this.returnScene);
+      }
       return;
     }
 

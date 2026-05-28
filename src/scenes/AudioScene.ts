@@ -76,8 +76,12 @@ export class AudioScene extends Phaser.Scene {
   private handleKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       sound.confirm();
-      this.scene.resume(this.returnScene);
       this.scene.stop();
+      if (this.returnScene === 'Config') {
+        this.scene.wake('Config');
+      } else if (this.returnScene) {
+        this.scene.resume(this.returnScene);
+      }
       return;
     }
     if (e.key === 'ArrowUp') {
