@@ -178,7 +178,7 @@ export class FloorGenerator {
       const key = tile.y * MAP_W + tile.x;
       if (!occupiedPositions.has(key)) {
         occupiedPositions.add(key);
-        this.createEnemy(tile, -1, floorMult);
+        this.createEnemy(tile, -2, floorMult);
         placed++;
       }
     }
