@@ -11,9 +11,14 @@ export class AudioScene extends Phaser.Scene {
   private sfxBar!: Phaser.GameObjects.Graphics;
   private musicLabel!: Phaser.GameObjects.Text;
   private sfxLabel!: Phaser.GameObjects.Text;
+  private returnScene = 'MainMenu';
 
   constructor() {
     super('Audio');
+  }
+
+  init(data: { returnScene?: string }) {
+    this.returnScene = data.returnScene ?? 'MainMenu';
   }
 
   create() {
@@ -71,7 +76,7 @@ export class AudioScene extends Phaser.Scene {
   private handleKey(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       sound.confirm();
-      this.scene.resume('Config');
+      this.scene.resume(this.returnScene);
       this.scene.stop();
       return;
     }

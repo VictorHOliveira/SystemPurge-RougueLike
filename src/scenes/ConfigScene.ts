@@ -98,13 +98,15 @@ export class ConfigScene extends Phaser.Scene {
   }
 
   private openKeybinds() {
-    this.scene.pause();
-    this.scene.launch('KeyBind', { returnScene: 'Config' });
+    const parent = this.returnScene;
+    this.scene.stop();
+    this.scene.launch('KeyBind', { returnScene: parent });
   }
 
   private openAudio() {
-    this.scene.pause();
-    this.scene.launch('Audio');
+    const parent = this.returnScene;
+    this.scene.stop();
+    this.scene.launch('Audio', { returnScene: parent });
   }
 
   private goBack() {
