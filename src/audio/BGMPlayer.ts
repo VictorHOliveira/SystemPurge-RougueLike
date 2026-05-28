@@ -53,7 +53,7 @@ export class BGMPlayer {
   private stepIndex = 0;
   private active = false;
   private currentTrack: TrackDef | null = null;
-  private _volume = 0.5;
+  private _volume = 0.25;
   private pausedStep = 0;
 
   constructor() {
