@@ -20,7 +20,12 @@ export class BootScene extends Phaser.Scene {
     this.load.image('enemy_trojan', 'sprites/entities/enemy_trojan.png');
     this.load.image('enemy_worm', 'sprites/entities/enemy_worm.png');
     this.load.image('enemy_spyware', 'sprites/entities/enemy_spyware.png');
-    this.load.image('enemy_boss', 'sprites/entities/enemy_boss.png');
+    this.load.image('enemy_boss', 'sprites/entities/rootkit.exe.png');
+    this.load.image('enemy_miniboss', 'sprites/entities/admin.exe.png');
+    this.load.image('enemy_malware', 'sprites/entities/malware.bat.png');
+    this.load.image('enemy_ransomware', 'sprites/entities/ransomware.exe.png');
+    this.load.image('enemy_overflow', 'sprites/entities/overflow.dll.png');
+    this.load.image('enemy_fragment', 'sprites/entities/fragment.png');
     this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
     this.load.image('class_limpador', 'sprites/classes/class_limpador.png');
     this.load.image('class_ping', 'sprites/classes/class_ping.png');
@@ -32,7 +37,6 @@ export class BootScene extends Phaser.Scene {
     this.generateTiles();
     this.generateParticleTexture();
     this.generateProjectileTextures();
-    this.generateEnemySprites();
     this.generateSpecialTileTextures();
     sound.init();
     trackEvent('game_start', { version });
@@ -76,19 +80,6 @@ export class BootScene extends Phaser.Scene {
     g.fillStyle(0xaaddff, 0.5);
     g.fillCircle(6, 6, 3);
     g.generateTexture('projectile_daemon', 12, 12);
-    g.destroy();
-  }
-
-  private generateEnemySprites() {
-    const g = this.add.graphics();
-    g.fillStyle(0xff44aa);
-    g.fillRect(4, 8, 24, 18);
-    g.fillStyle(0xcc2266);
-    g.fillRect(2, 4, 28, 6);
-    g.lineStyle(1, 0x000000, 0.3);
-    g.strokeRect(4, 8, 24, 18);
-    g.strokeRect(2, 4, 28, 6);
-    g.generateTexture('enemy_miniboss', 32, 32);
     g.destroy();
   }
 
