@@ -155,6 +155,15 @@ export class FloorGenerator {
       }
     }
 
+    if (this.state.bossRoomIdx !== -1) {
+      const r = rooms[this.state.bossRoomIdx];
+      this.createEnemy({ x: r.cx, y: r.cy }, this.state.bossRoomIdx, floorMult);
+    }
+    if (this.state.minibossRoomIdx !== -1) {
+      const r = rooms[this.state.minibossRoomIdx];
+      this.createEnemy({ x: r.cx, y: r.cy }, this.state.minibossRoomIdx, floorMult);
+    }
+
     this.spawnCorridorEnemies(corridorTiles, occupiedPositions, floorMult);
   }
 
