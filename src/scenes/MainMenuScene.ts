@@ -109,7 +109,7 @@ export class MainMenuScene extends Phaser.Scene {
     btnY += 45;
     this.addButton(512, btnY, '[ COMPÊNDIO ]', COLORS.subtitle, () => this.openCompendium());
     btnY += 45;
-    this.addButton(512, btnY, '[ CONTROLES ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(512, btnY, '[ CONFIGURAÇÕES ]', COLORS.menuAccent, () => this.openConfig());
     btnY += 45;
     this.addButton(512, btnY, '[ SOBRE ]', COLORS.subtitle, () => this.showAbout());
     btnY += 45;
@@ -195,9 +195,9 @@ export class MainMenuScene extends Phaser.Scene {
     this.scene.start('Compendium', { returnScene: 'MainMenu' });
   }
 
-  private showControls() {
+  private openConfig() {
     this.scene.pause();
-    this.scene.launch('KeyBind', { returnScene: 'MainMenu' });
+    this.scene.launch('Config', { returnScene: 'MainMenu' });
   }
 
   private showAbout() {

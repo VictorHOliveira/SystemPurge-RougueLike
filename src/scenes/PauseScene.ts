@@ -53,10 +53,10 @@ export class PauseScene extends Phaser.Scene {
     divTop.lineBetween(560, 120, 888, 120);
 
     this.addButton(320, 170, '[ Continuar ]', COLORS.subtitle, () => this.resumeGame());
-    this.addButton(320, 230, '[ Controles ]', COLORS.menuAccent, () => this.showControls());
+    this.addButton(320, 230, '[ Salvar e Sair ]', COLORS.gold, () => this.saveAndQuit());
     this.addButton(320, 290, '[ Compêndio ]', COLORS.subtitle, () => this.openCompendium());
-    this.addButton(320, 350, '[ Salvar e Sair ]', COLORS.gold, () => this.saveAndQuit());
-    this.addButton(320, 410, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(320, 350, '[ Reiniciar ]', COLORS.abilityCd, () => this.restartGame());
+    this.addButton(320, 410, '[ Configurações ]', COLORS.menuAccent, () => this.openConfig());
     this.addButton(320, 470, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
 
     this.add.text(320, 530, 'Setas | ENTER | ESC', {
@@ -183,9 +183,9 @@ export class PauseScene extends Phaser.Scene {
     this.scene.start('Compendium', { returnScene: 'Pause' });
   }
 
-  private showControls() {
+  private openConfig() {
     this.scene.pause();
-    this.scene.launch('KeyBind', { returnScene: 'Pause' });
+    this.scene.launch('Config', { returnScene: 'Pause' });
   }
 
   private addButton(x: number, y: number, label: string, color: string, cb: () => void) {

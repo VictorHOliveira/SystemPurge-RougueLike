@@ -7,6 +7,8 @@ import { HUDScene } from './scenes/HUDScene';
 import { UpgradeScene } from './scenes/UpgradeScene';
 import { PauseScene } from './scenes/PauseScene';
 import { KeyBindScene } from './scenes/KeyBindScene';
+import { ConfigScene } from './scenes/ConfigScene';
+import { AudioScene } from './scenes/AudioScene';
 import { CompendiumScene } from './scenes/CompendiumScene';
 import { GameOverScene } from './scenes/GameOverScene';
 import { ClassUnlockScene } from './scenes/ClassUnlockScene';
@@ -19,7 +21,7 @@ const config: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   roundPixels: true,
   backgroundColor: '#000000',
-  scene: [BootScene, MainMenuScene, ClassSelectScene, GameScene, HUDScene, UpgradeScene, PauseScene, KeyBindScene, GameOverScene, ShopScene, ClassUnlockScene, CompendiumScene],
+  scene: [BootScene, MainMenuScene, ClassSelectScene, GameScene, HUDScene, UpgradeScene, PauseScene, KeyBindScene, ConfigScene, AudioScene, GameOverScene, ShopScene, ClassUnlockScene, CompendiumScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_VERTICALLY,

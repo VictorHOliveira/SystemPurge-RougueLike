@@ -1,4 +1,5 @@
 import { ZZFX } from 'zzfx';
+import { loadAudioSettings, saveAudioSettings } from '../utils/audioSave';
 
 interface TrackDef {
   bpm: number;
@@ -53,10 +54,11 @@ export class BGMPlayer {
   private stepIndex = 0;
   private active = false;
   private currentTrack: TrackDef | null = null;
-  private _volume = 0.25;
+  private _volume: number;
   private pausedStep = 0;
 
   constructor() {
+    this._volume = loadAudioSettings().musicVolume;
     this.ctx = ZZFX.audioContext;
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = this._volume;
@@ -70,6 +72,9 @@ export class BGMPlayer {
   set volume(v: number) {
     this._volume = Math.max(0, Math.min(1, v));
     this.masterGain.gain.value = this._volume;
+    const s = loadAudioSettings();
+    s.musicVolume = this._volume;
+    saveAudioSettings(s);
   }
 
   play(which: string): void {
