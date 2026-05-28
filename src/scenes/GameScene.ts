@@ -24,6 +24,7 @@ import { PURCHASABLE_ABILITIES } from '../data/purchasableAbilities';
 import { CLASSES, getClassById } from '../data/classes';
 import { saveRun, loadRunSave, deleteRunSave, restorePlayerFromSave, restoreMapFromSave, restoreEnemyBleeds, restoreChests } from '../utils/runSave';
 import type { EnemyTemplate } from '../data/enemies';
+import { bgm } from '../audio/BGMPlayer';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -150,6 +151,8 @@ export class GameScene extends Phaser.Scene {
       this.loadActiveAbilities();
     }
 
+    bgm.play('game');
+
     this.syncStaticRegistry();
     this.syncRegistry();
 
@@ -206,6 +209,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handlePlayerDeath() {
+    bgm.stop();
     sound.play('player_death');
     this.renderSystem.spawnParticles(this.state.player.x, this.state.player.y, 0xff4444, 12);
     this.state.messageLog.add('*** SISTEMA FALHOU ***');
@@ -453,6 +457,9 @@ export class GameScene extends Phaser.Scene {
       if (this.state.player.floor % 5 === 0) {
         sound.play('boss_appear');
         this.state.messageLog.add('*** ALERTA: ROOTKIT DETECTADO ***');
+      }
+      if (this.state.bossRoomIdx !== -1) {
+        bgm.play('boss');
       }
       trackEvent('floor_reach', { floor: this.state.player.floor, level: this.state.player.level });
     } else {

@@ -3,6 +3,7 @@ import { CLASSES } from '../data/classes';
 import { FONT, COLORS } from '../theme';
 import { loadMeta, saveMeta, calcBitsEarned } from '../utils/metaSave';
 import { deleteRunSave } from '../utils/runSave';
+import { bgm } from '../audio/BGMPlayer';
 
 const CLASS_NAMES: Record<string, string> = {};
 for (const c of CLASSES) {
@@ -33,6 +34,7 @@ export class GameOverScene extends Phaser.Scene {
     this.buttons = [];
 
     deleteRunSave();
+    bgm.stop();
 
     const meta = loadMeta();
     meta.bits += this.bitsEarned;

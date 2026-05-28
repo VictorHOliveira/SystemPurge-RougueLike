@@ -4,6 +4,7 @@ import { sound } from '../audio/SoundManager';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { loadMeta, saveMeta, defaultMeta } from '../utils/metaSave';
 import { hasRunSave, deleteRunSave } from '../utils/runSave';
+import { bgm } from '../audio/BGMPlayer';
 
 export class MainMenuScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -76,6 +77,7 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   private showMainMenu() {
+    bgm.play('menu');
     this.add.text(512, 90, 'SYSTEM PURGE', {
       fontFamily: FONT,
       fontSize: '52px',

@@ -3,6 +3,7 @@ import { sound } from '../audio/SoundManager';
 import { FONT, COLORS } from '../theme';
 import { loadMeta } from '../utils/metaSave';
 import { saveRun, deleteRunSave } from '../utils/runSave';
+import { bgm } from '../audio/BGMPlayer';
 
 export class PauseScene extends Phaser.Scene {
   private selectedIndex = 0;
@@ -68,6 +69,7 @@ export class PauseScene extends Phaser.Scene {
       this.buildStatsPanel(player);
     }
 
+    bgm.pause();
     this.highlight(0);
 
     this.input.keyboard?.on('keydown', this.handleKey, this);
@@ -209,6 +211,7 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private resumeGame() {
+    bgm.resume();
     this.scene.resume('Game');
     this.scene.resume('HUD');
     this.scene.stop();
