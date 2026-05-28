@@ -155,11 +155,11 @@ export class FloorGenerator {
       }
     }
 
-    if (this.state.bossRoomIdx !== -1) {
+    if (this.state.bossRoomIdx !== -1 && this.state.player.floor % 10 === 0) {
       const r = rooms[this.state.bossRoomIdx];
       this.createEnemy({ x: r.cx, y: r.cy }, this.state.bossRoomIdx, floorMult);
     }
-    if (this.state.minibossRoomIdx !== -1) {
+    if (this.state.minibossRoomIdx !== -1 && this.state.player.floor % 3 === 0) {
       const r = rooms[this.state.minibossRoomIdx];
       this.createEnemy({ x: r.cx, y: r.cy }, this.state.minibossRoomIdx, floorMult);
     }

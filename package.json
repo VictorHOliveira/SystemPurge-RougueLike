@@ -1,6 +1,6 @@
 {
   "name": "system-purge",
-  "version": "0.4.02",
+  "version": "0.4.03",
   "private": true,
   "type": "module",
   "scripts": {
