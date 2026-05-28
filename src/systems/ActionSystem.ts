@@ -480,13 +480,43 @@ export class ActionSystem {
     const { player, messageLog, fov } = this.state;
     const rolled = rollRewards(player.acquiredUpgrades, 0, 5, this.state.classId);
     const upgOptions = rewardUpgrades(rolled);
-    if (upgOptions.length === 0) return;
+
+    const showHealReward = (pickLabel: string) => {
+      this.scene.scene.pause();
+      this.scene.scene.launch('Upgrade', {
+        upgrades: [],
+        items: [],
+        heals: [{ id: 'heal50', name: 'Recuperação', description: 'Recupera 50 HP', amount: 50 }],
+        acquired: player.acquiredUpgrades,
+        mode: 'reveal',
+        pickCount: 1,
+        floor: player.floor,
+        title: `RECOMPENSA DO BOSS${pickLabel}`,
+        onSelect: (_kind: 'upgrade' | 'item' | 'heal', _id: string) => {
+          const healed = player.heal(50);
+          messageLog.add(`Recuperação: +${healed} HP.`);
+          this.state.fov.setRadius(player.effectiveFov);
+          this.state.fov.compute(this.state.map, player.x, player.y);
+          this.scene.scene.resume();
+          this.callbacks.onBossRewardsComplete?.();
+        },
+      });
+    };
+
+    if (upgOptions.length === 0) {
+      showHealReward('');
+      return;
+    }
 
     let remainingUpgs = [...upgOptions];
     let pickCount = 2;
 
     const showPick = () => {
-      if (pickCount <= 0 || remainingUpgs.length === 0) return;
+      if (pickCount <= 0) return;
+      if (remainingUpgs.length === 0) {
+        showHealReward(` (mais ${pickCount})`);
+        return;
+      }
       this.scene.scene.pause();
       this.scene.scene.launch('Upgrade', {
         upgrades: remainingUpgs,
@@ -496,7 +526,8 @@ export class ActionSystem {
         pickCount,
         floor: player.floor,
         title: `RECOMPENSA DO BOSS (mais ${pickCount})`,
-        onSelect: (kind: 'upgrade' | 'item', id: string) => {
+        onSelect: (kind: 'upgrade' | 'item' | 'heal', id: string) => {
+          if (kind !== 'upgrade') return;
           player.applyUpgrade(id);
           const upg = ALL_UPGRADES.find(u => u.id === id);
           if (upg) messageLog.add(`${upg.name} ativado.`);

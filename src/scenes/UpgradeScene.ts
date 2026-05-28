@@ -5,7 +5,7 @@ import { trackEvent } from '../analytics';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
 
 interface CardOption {
-  kind: 'upgrade' | 'item';
+  kind: 'upgrade' | 'item' | 'heal';
   id: string;
   name: string;
   description: string;
@@ -16,7 +16,7 @@ interface CardOption {
 
 export class UpgradeScene extends Phaser.Scene {
   private options: CardOption[] = [];
-  private onSelect!: (kind: 'upgrade' | 'item', id: string) => void;
+  private onSelect!: (kind: 'upgrade' | 'item' | 'heal', id: string) => void;
   private selectedIndex = 0;
   private cards: { bg: Phaser.GameObjects.Graphics; y: number }[] = [];
   private mode: 'choice' | 'reveal' = 'choice';
@@ -30,8 +30,9 @@ export class UpgradeScene extends Phaser.Scene {
   init(data: {
     upgrades: Upgrade[];
     items: ItemDef[];
+    heals?: { id: string; name: string; description: string; amount: number }[];
     acquired: Map<string, number>;
-    onSelect: (kind: 'upgrade' | 'item', id: string) => void;
+    onSelect: (kind: 'upgrade' | 'item' | 'heal', id: string) => void;
     mode?: 'choice' | 'reveal';
     floor?: number;
     pickCount?: number;
@@ -61,6 +62,18 @@ export class UpgradeScene extends Phaser.Scene {
         tag: 'ITEM',
         tagColor: COLORS.gold,
       });
+    }
+    if (data.heals) {
+      for (const h of data.heals) {
+        this.options.push({
+          kind: 'heal',
+          id: h.id,
+          name: h.name,
+          description: h.description,
+          tag: 'CURA',
+          tagColor: COLORS.accent,
+        });
+      }
     }
     this.options.sort(() => Math.random() - 0.5);
     this.onSelect = data.onSelect;
