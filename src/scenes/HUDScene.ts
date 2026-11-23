@@ -337,7 +337,7 @@ export class HUDScene extends Phaser.Scene {
     const reflectBuff = (this.registry.get(R.reflectBuff) as number) ?? 0;
     const baseFov = (this.registry.get(R.baseFov) as number) ?? 8;
     const bonusFov = (this.registry.get(R.bonusFov) as number) ?? 0;
-    const moveSpeed = (this.registry.get(R.currentMoveSpeed) as number) ?? 1.3;
+    const moveSpeed = (this.registry.get(R.currentMoveSpeed) as number) ?? 1;
     const bossAlive = (this.registry.get(R.bossAlive) as boolean) ?? false;
     const bossVisible = (this.registry.get(R.bossVisible) as boolean) ?? false;
 
