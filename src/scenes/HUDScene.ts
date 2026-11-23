@@ -10,10 +10,14 @@ import { FONT, COLORS, FONT_SIZES } from '../theme';
 const HUD_X = 648;
 const PANEL_W = 358;
 const RIGHT = 1006;
+const LOW_HP_ENTER = 0.3;
+const LOW_HP_EXIT = 0.4;
 
 const ITEM_NAMES: Record<string, string> = {};
+const ITEM_ICONS: Record<string, string> = {};
 for (const item of ALL_ITEMS) {
   ITEM_NAMES[item.id] = `${item.name}`;
+  ITEM_ICONS[item.id] = item.icon;
 }
 
 const CLASS_NAMES: Record<string, string> = {};
@@ -42,11 +46,14 @@ export class HUDScene extends Phaser.Scene {
   private xpBarBg!: Phaser.GameObjects.Graphics;
   private xpText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
+  private statusIcons: Phaser.GameObjects.Image[] = [];
 
   private abilTexts: Phaser.GameObjects.Text[] = [];
   private abilDescTexts: Phaser.GameObjects.Text[] = [];
+  private abilIcons: Phaser.GameObjects.Image[] = [];
   private abilTitle!: Phaser.GameObjects.Text;
   private invTexts: Phaser.GameObjects.Text[] = [];
+  private invIcons: Phaser.GameObjects.Image[] = [];
   private itemTitle!: Phaser.GameObjects.Text;
 
   private upgradeTitle!: Phaser.GameObjects.Text;
@@ -57,15 +64,22 @@ export class HUDScene extends Phaser.Scene {
 
   private footerText!: Phaser.GameObjects.Text;
   private lastHudVersion = -1;
+  private lowHpActive = false;
+  private lowHpTween?: Phaser.Tweens.Tween;
 
   constructor() {
     super('HUD');
   }
 
   create() {
+    this.lowHpActive = false;
+    this.lowHpTween = undefined;
     this.abilTexts = [];
     this.abilDescTexts = [];
+    this.abilIcons = [];
     this.invTexts = [];
+    this.invIcons = [];
+    this.statusIcons = [];
     this.messageTexts = [];
 
     const bg = this.add.graphics();
@@ -75,6 +89,11 @@ export class HUDScene extends Phaser.Scene {
     const vert = this.add.graphics();
     vert.lineStyle(1, 0x1a2a3a);
     vert.lineBetween(640, 0, 640, 640);
+
+    this.addPanelFrame(6, 100);
+    this.addPanelFrame(112, 160);
+    this.addPanelFrame(278, 190);
+    this.addPanelFrame(474, 130);
 
     this.panel1 = this.add.graphics();
     this.panel2 = this.add.graphics();
@@ -90,8 +109,15 @@ export class HUDScene extends Phaser.Scene {
     this.buildFooter();
   }
 
+  private addPanelFrame(y: number, h: number) {
+    if (!this.textures.exists('ui_panel_frame')) return;
+    const b = 3;
+    this.add.image(HUD_X + 4 + (PANEL_W - 8) / 2, y + h / 2, 'ui_panel_frame')
+      .setDisplaySize(PANEL_W - 8 + b * 2, h + b * 2);
+  }
+
   private panelRect(g: Phaser.GameObjects.Graphics, y: number, h: number) {
-    g.fillStyle(0x0a1a18);
+    g.fillStyle(0x0a1a18, 1);
     g.fillRoundedRect(HUD_X + 4, y, PANEL_W - 8, h, 4);
     g.lineStyle(1, 0x2a4a3a);
     g.strokeRoundedRect(HUD_X + 4, y, PANEL_W - 8, h, 4);
@@ -151,6 +177,14 @@ export class HUDScene extends Phaser.Scene {
       fontSize: FONT_SIZES.stats,
       color: COLORS.subtitleText,
     });
+
+    const statusKeys = [
+      'status_bleed', 'status_crypto', 'status_boot', 'status_dodge',
+      'status_regen', 'status_overclock', 'status_defrag', 'status_reflect',
+    ];
+    this.statusIcons = statusKeys.map((key, i) =>
+      this.add.image(780 + i * 18, y + 80, key).setDisplaySize(14, 14).setVisible(false),
+    );
   }
 
   private buildPanel2() {
@@ -170,17 +204,18 @@ export class HUDScene extends Phaser.Scene {
 
     const maxAbilityWidth = 817 - cx - 4;
     for (let i = 0; i < 3; i++) {
-      this.abilTexts.push(this.add.text(cx, 0, '', {
+      this.abilIcons.push(this.add.image(cx, 0, 'ability_varredura').setDisplaySize(16, 16).setVisible(false));
+      this.abilTexts.push(this.add.text(cx + 18, 0, '', {
         fontFamily: FONT,
         fontSize: FONT_SIZES.ability,
         color: COLORS.subtitle,
-        wordWrap: { width: maxAbilityWidth, useAdvancedWrap: true },
+        wordWrap: { width: maxAbilityWidth - 18, useAdvancedWrap: true },
       }));
-      this.abilDescTexts.push(this.add.text(cx + 8, 0, '', {
+      this.abilDescTexts.push(this.add.text(cx + 24, 0, '', {
         fontFamily: FONT,
         fontSize: FONT_SIZES.subtitle,
         color: COLORS.muted,
-        wordWrap: { width: maxAbilityWidth, useAdvancedWrap: true },
+        wordWrap: { width: maxAbilityWidth - 24, useAdvancedWrap: true },
       }));
     }
 
@@ -192,11 +227,12 @@ export class HUDScene extends Phaser.Scene {
 
     const maxItemWidth = RIGHT - 825 - 4;
     for (let i = 0; i < 6; i++) {
-      this.invTexts.push(this.add.text(825, 0, '', {
+      this.invIcons.push(this.add.image(827, 0, 'item_health_patch').setDisplaySize(16, 16).setVisible(false));
+      this.invTexts.push(this.add.text(825 + 18, 0, '', {
         fontFamily: FONT,
         fontSize: FONT_SIZES.ability,
         color: COLORS.gold,
-        wordWrap: { width: maxItemWidth, useAdvancedWrap: true },
+        wordWrap: { width: maxItemWidth - 18, useAdvancedWrap: true },
       }));
     }
   }
@@ -255,7 +291,8 @@ export class HUDScene extends Phaser.Scene {
   private messageColor(msg: string): string {
     if (msg.includes('***') || msg.includes('ATUALIZADO')) return COLORS.warning;
     if (msg.includes('FALHOU')) return COLORS.error;
-    if (msg.includes('acerta') && msg.includes('dano')) return COLORS.logDano;
+    if ((msg.includes('acerta') || msg.includes('EXPLODE')) && msg.includes('dano')) return COLORS.logDano;
+    if (msg.includes('Armadilha de dados')) return COLORS.logDano;
     if (msg.includes('neutralizado')) return COLORS.logMorte;
     if (msg.includes('---') || msg.includes('Acessando') || msg.includes('SYSTEM PURGE') || msg.includes('Kernel')) return COLORS.logSistema;
     return COLORS.muted;
@@ -274,7 +311,10 @@ export class HUDScene extends Phaser.Scene {
     const atk = (this.registry.get(R.attack) as number) ?? 0;
     const def = (this.registry.get(R.defense) as number) ?? 0;
     const tempAtk = (this.registry.get(R.tempAtkBonus) as number) ?? 0;
-    const effectiveAtk = atk + tempAtk;
+    const tempAtkMultiplier = (this.registry.get(R.tempAtkMultiplier) as number) ?? 1;
+    const tempAtkCharges = (this.registry.get(R.tempAtkCharges) as number) ?? 0;
+    const shieldCharges = (this.registry.get(R.shieldCharges) as number) ?? 0;
+    const effectiveAtk = Math.floor((atk + tempAtk) * tempAtkMultiplier);
     const xp = (this.registry.get(R.xp) as number) ?? 0;
     const xpN = (this.registry.get(R.xpNext) as number) ?? 1;
     const kills = (this.registry.get(R.kills) as number) ?? 0;
@@ -286,17 +326,25 @@ export class HUDScene extends Phaser.Scene {
     const cooldowns = (this.registry.get(R.cooldowns) as number[]) ?? [];
     const abilities = (this.registry.get(R.abilities) as {
       id: string; name: string; cooldown: number; type: string;
-      description?: string; damage?: number; duration?: number;
+      description?: string; damage?: number; duration?: number; icon?: string;
     }[]) ?? [];
     const bleedTicks = (this.registry.get(R.bleedTicks) as number) ?? 0;
     const defenseBuff = (this.registry.get(R.defenseBuff) as number) ?? 0;
     const upgradesMap = (this.registry.get(R.upgrades) as Map<string, number>) ?? new Map();
     const hasFatalGuard = (this.registry.get(R.hasFatalGuard) as boolean) ?? false;
+    const hasDodge = (this.registry.get(R.hasDodge) as boolean) ?? false;
+    const hasRegen = (this.registry.get(R.hasRegen) as boolean) ?? false;
+    const reflectBuff = (this.registry.get(R.reflectBuff) as number) ?? 0;
+    const baseFov = (this.registry.get(R.baseFov) as number) ?? 8;
+    const bonusFov = (this.registry.get(R.bonusFov) as number) ?? 0;
+    const moveSpeed = (this.registry.get(R.currentMoveSpeed) as number) ?? 1.3;
+    const bossAlive = (this.registry.get(R.bossAlive) as boolean) ?? false;
+    const bossVisible = (this.registry.get(R.bossVisible) as boolean) ?? false;
 
     const className = CLASS_NAMES[classId] ?? classId;
     const b = loadBindings();
 
-    this.updatePanel1({ name, level, floor, className, bleedTicks, defenseBuff, hasFatalGuard, hp, maxHp, xp, xpN, kills });
+    this.updatePanel1({ name, level, floor, className, bleedTicks, defenseBuff, hasFatalGuard, hasDodge, hasRegen, reflectBuff, tempAtk, tempAtkMultiplier, tempAtkCharges, shieldCharges, tempDef: (this.registry.get(R.tempDefBonus) as number) ?? 0, hp, maxHp, xp, xpN, kills, atk, def, baseFov, bonusFov, moveSpeed, bossAlive, bossVisible });
 
     const abilKey0 = displayKey(b.ability_0);
     const abilKey1 = displayKey(b.ability_1);
@@ -307,24 +355,43 @@ export class HUDScene extends Phaser.Scene {
     this.updateFooter(b);
   }
 
-  private updatePanel1(data: { name: string; level: number; floor: number; className: string; bleedTicks: number; defenseBuff: number; hasFatalGuard: boolean; hp: number; maxHp: number; xp: number; xpN: number; kills: number }) {
+  private updatePanel1(data: { name: string; level: number; floor: number; className: string; bleedTicks: number; defenseBuff: number; hasFatalGuard: boolean; hasDodge: boolean; hasRegen: boolean; reflectBuff: number; tempAtk: number; tempAtkMultiplier: number; tempAtkCharges: number; shieldCharges: number; tempDef: number; hp: number; maxHp: number; xp: number; xpN: number; kills: number; atk: number; def: number; baseFov: number; bonusFov: number; moveSpeed: number; bossAlive: boolean; bossVisible: boolean }) {
     this.headerText.setText(data.name);
     let classLine = `Nv ${data.level}  \u2502  /system/${data.floor}  \u2502  ${data.className}`;
     if (data.bleedTicks > 0) classLine += '   \u25b8 SANGRA';
     if (data.defenseBuff > 0) classLine += '   \u25b8 CRIPTO';
+    if (data.tempAtkMultiplier > 1) classLine += `   \u25b8 ATQ x${data.tempAtkMultiplier} (${data.tempAtkCharges})`;
+    if (data.shieldCharges > 0) classLine += `   \u25b8 BARREIRA ${data.shieldCharges}`;
     if (data.hasFatalGuard) classLine += '   \u25b8 BOOT';
+    if (data.bossAlive) classLine += data.bossVisible ? '   \u25b8 BOSS \u00c0 VISTA' : '   \u25b8 BOSS';
     this.classText.setText(classLine);
 
     const y = 6;
     const barW = PANEL_W - 28;
     const hpPct = Math.max(0, Math.min(1, data.hp / data.maxHp));
+    if (this.lowHpActive && hpPct >= LOW_HP_EXIT) {
+      this.lowHpActive = false;
+      this.lowHpTween?.stop();
+      this.lowHpTween = undefined;
+      this.hpBarFill.setAlpha(1);
+      this.hpText.setAlpha(1);
+    } else if (!this.lowHpActive && hpPct <= LOW_HP_ENTER) {
+      this.lowHpActive = true;
+      this.lowHpTween = this.tweens.add({
+        targets: [this.hpBarFill, this.hpText],
+        alpha: 0.4,
+        duration: 350,
+        yoyo: true,
+        repeat: -1,
+      });
+    }
     this.hpBarFill.clear();
     if (hpPct > 0) {
-      this.hpBarFill.fillStyle(0x00ff88);
+      this.hpBarFill.fillStyle(this.lowHpActive ? 0xff4444 : 0x00ff88);
       this.hpBarFill.fillRect(HUD_X + 15, y + 45, Math.floor((barW - 2) * hpPct), 12);
     }
-    this.hpText.setText(`${data.hp}/${data.maxHp}`);
-    this.hpText.setColor('#ff4444');
+    this.hpText.setText(this.lowHpActive ? `${data.hp}/${data.maxHp}  \u25b8 VIDA CR\u00cdTICA` : `${data.hp}/${data.maxHp}`);
+    this.hpText.setColor(this.lowHpActive ? '#ff6644' : '#ffffff');
 
     const xpPct = Math.max(0, Math.min(1, data.xp / data.xpN));
     this.xpBarFill.clear();
@@ -332,12 +399,21 @@ export class HUDScene extends Phaser.Scene {
       this.xpBarFill.fillStyle(0x4488ff);
       this.xpBarFill.fillRect(HUD_X + 15, y + 61, Math.floor((barW - 2) * xpPct), 6);
     }
-    this.xpText.setText(`${data.xp}/${data.xpN}`);
-    this.statsText.setText(`ABATES  ${data.kills}`);
+    this.xpText.setText(`XP ${data.xp}/${data.xpN}`);
+    const effectiveAtk = Math.floor((data.atk + data.tempAtk) * data.tempAtkMultiplier);
+    this.statsText.setText(`ATQ ${effectiveAtk}  DEF ${data.def}  VIS ${data.baseFov + data.bonusFov}  VEL ${data.moveSpeed.toFixed(1)}x  ABATES ${data.kills}`);
+    this.statusIcons[0].setVisible(data.bleedTicks > 0);
+    this.statusIcons[1].setVisible(data.defenseBuff > 0);
+    this.statusIcons[2].setVisible(data.hasFatalGuard);
+    this.statusIcons[3].setVisible(data.hasDodge);
+    this.statusIcons[4].setVisible(data.hasRegen);
+    this.statusIcons[5].setVisible(data.tempAtk > 0 || data.tempAtkMultiplier > 1);
+    this.statusIcons[6].setVisible(data.tempDef > 0 || data.shieldCharges > 0);
+    this.statusIcons[7].setVisible(data.reflectBuff > 0);
   }
 
   private updatePanel2_3(
-    abilities: { id: string; name: string; cooldown: number; type: string; description?: string; damage?: number; duration?: number }[],
+    abilities: { id: string; name: string; cooldown: number; type: string; description?: string; damage?: number; duration?: number; icon?: string }[],
     cooldowns: number[],
     inventory: (string | null)[],
     unlockedSlots: number,
@@ -369,18 +445,26 @@ export class HUDScene extends Phaser.Scene {
         const displayKey_ = ready ? key : `${cd}`;
         this.abilTexts[i].setText(`[${displayKey_}] ${a.name}`);
         this.abilTexts[i].setColor(ready ? COLORS.abilityReady : COLORS.abilityCd);
-        this.abilTexts[i].setPosition(abilX, curY);
+        this.abilTexts[i].setPosition(abilX + 18, curY);
         this.abilTexts[i].setVisible(true);
+        if (a.icon) {
+          this.abilIcons[i].setTexture(a.icon);
+          this.abilIcons[i].setPosition(abilX, curY + 1);
+          this.abilIcons[i].setVisible(true);
+        } else {
+          this.abilIcons[i].setVisible(false);
+        }
         curY += this.abilTexts[i].height + 1;
 
         const statsStr = this.abilityStats(a, effectiveAtk, hp, maxHp);
         this.abilDescTexts[i].setText(`\u2192 ${statsStr}`);
-        this.abilDescTexts[i].setPosition(abilX + 6, curY);
+        this.abilDescTexts[i].setPosition(abilX + 24, curY);
         this.abilDescTexts[i].setVisible(true);
         curY += 16;
       } else {
         this.abilTexts[i].setVisible(false);
         this.abilDescTexts[i].setVisible(false);
+        this.abilIcons[i].setVisible(false);
       }
     }
 
@@ -392,13 +476,22 @@ export class HUDScene extends Phaser.Scene {
       if (locked) {
         this.invTexts[i].setText(`[${key}]  \u{1F512}`);
         this.invTexts[i].setColor(COLORS.error);
+        this.invIcons[i].setVisible(false);
       } else {
         const id = inventory[i];
         const txt = id && ITEM_NAMES[id] ? `[${key}]  ${ITEM_NAMES[id]}` : `[${key}]  ---`;
         this.invTexts[i].setText(txt);
         this.invTexts[i].setColor(COLORS.gold);
+        const icon = id ? ITEM_ICONS[id] : undefined;
+        if (icon) {
+          this.invIcons[i].setTexture(icon);
+          this.invIcons[i].setPosition(itemX + 2, curY + 1);
+          this.invIcons[i].setVisible(true);
+        } else {
+          this.invIcons[i].setVisible(false);
+        }
       }
-      this.invTexts[i].setPosition(itemX, curY);
+      this.invTexts[i].setPosition(itemX + 18, curY);
       this.invTexts[i].setVisible(true);
       curY += this.invTexts[i].height + 2;
     }
@@ -480,8 +573,8 @@ export class HUDScene extends Phaser.Scene {
       case 'aoe_damage': return a.duration ? `[${a.damage ?? 8} + sangra]` : `[${a.damage ?? 8}]`;
       case 'dot': return a.duration ? `[${a.damage ?? 10} + sangra ${a.duration}t]` : `[${a.damage ?? 10}]`;
       case 'heal': return `[cura ~${Math.max(1, Math.floor((maxHp - hp) * 0.5))}]`;
-      case 'self_buff': return `[+${a.damage ?? 5} ATQ ${a.duration ?? 4}a]`;
-      case 'shield': return '[absorve]';
+      case 'self_buff': return `[ATQ x${a.damage ?? 2} ${a.duration ?? 10}a]`;
+      case 'shield': return `[absorve ${a.duration ?? 2}a]`;
       case 'knockback': return '[empurra]';
       case 'reflect_buff': return `[reflete ${a.duration ?? 2}a]`;
       default: return '';

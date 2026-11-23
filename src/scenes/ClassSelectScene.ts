@@ -6,6 +6,12 @@ import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { loadMeta, saveMeta } from '../utils/metaSave';
 import { CLASS_FLOOR_UNLOCK } from '../data/metaUpgrades';
 
+const CARD_W = 224;
+const CARD_H = 460;
+const CARD_GAP = 16;
+const CARD_START_X = 40;
+const CARD_Y = 110;
+
 export class ClassSelectScene extends Phaser.Scene {
   private selectedIndex = 0;
   private cardGraphics: Phaser.GameObjects.Graphics[] = [];
@@ -24,7 +30,7 @@ export class ClassSelectScene extends Phaser.Scene {
     bg.fillStyle(0x000810);
     bg.fillRect(0, 0, 1024, 640);
 
-    this.add.text(477, 40, 'SELECIONE SUA CLASSE', {
+    this.add.text(512, 40, 'SELECIONE SUA CLASSE', {
       fontFamily: FONT,
       fontSize: '26px',
       color: COLORS.accent,
@@ -33,12 +39,12 @@ export class ClassSelectScene extends Phaser.Scene {
 
     const div = this.add.graphics();
     div.lineStyle(1, 0x1a3a2a);
-    div.lineBetween(165, 70, 789, 70);
+    div.lineBetween(212, 70, 812, 70);
 
     CLASSES.forEach((c, i) => this.drawCard(i, c));
     this.updateCardHighlights();
 
-    this.add.text(477, 600, '\u2190 \u2192 Navegar | ENTER para selecionar | ESC voltar', {
+    this.add.text(512, 600, '\u2190 \u2192 Navegar | ENTER para selecionar | ESC voltar', {
       fontFamily: FONT,
       fontSize: '13px',
       color: COLORS.dimText,
@@ -72,35 +78,40 @@ export class ClassSelectScene extends Phaser.Scene {
   }
 
   private drawCard(index: number, c: typeof CLASSES[0]) {
-    const cx = 93 + index * 220;
-    const y = 110;
-    const w = 200;
-    const h = 440;
+    const cx = CARD_START_X + index * (CARD_W + CARD_GAP);
+    const y = CARD_Y;
+    const w = CARD_W;
+    const h = CARD_H;
+
+    if (this.textures.exists('ui_class_card_frame')) {
+      this.add.image(cx + w / 2, y + h / 2, 'ui_class_card_frame').setDisplaySize(w, h);
+    }
 
     const card = this.add.graphics();
     this.cardGraphics.push(card);
 
-    const sprite = this.add.image(cx + w / 2, y + 70, c.textureKey);
-    sprite.setScale(3);
+    const hdKey = `${c.textureKey}_hd`;
+    const sprite = this.add.image(cx + w / 2, y + 76, this.textures.exists(hdKey) ? hdKey : c.textureKey);
+    sprite.setDisplaySize(72, 72);
 
-    this.add.text(cx + w / 2, y + 120, c.name, {
+    this.add.text(cx + w / 2, y + 122, c.name, {
       fontFamily: FONT,
-      fontSize: '14px',
+      fontSize: '13px',
       color: COLORS.lightText,
       fontStyle: 'bold',
       align: 'center',
-      wordWrap: { width: 180 },
+      wordWrap: { width: w - 56 },
     }).setOrigin(0.5);
 
-    this.add.text(cx + w / 2, y + 160, c.description, {
+    this.add.text(cx + w / 2, y + 152, c.description, {
       fontFamily: FONT,
-      fontSize: '10px',
+      fontSize: '9px',
       color: COLORS.subtitleText,
       align: 'center',
-      wordWrap: { width: 175 },
+      wordWrap: { width: w - 64 },
     }).setOrigin(0.5);
 
-    const statsY = y + 210;
+    const statsY = y + 190;
     const stats = [
       `HP: ${c.hp}`,
       `ATQ: ${c.attack}`,
@@ -108,14 +119,14 @@ export class ClassSelectScene extends Phaser.Scene {
       `VEL: ${c.moveSpeed.toFixed(1)}x`,
     ];
     stats.forEach((s, i) => {
-      this.add.text(cx + w / 2, statsY + i * 20, s, {
+      this.add.text(cx + w / 2, statsY + i * 18, s, {
         fontFamily: FONT,
         fontSize: '12px',
         color: COLORS.logText,
       }).setOrigin(0.5);
     });
 
-    const passY = statsY + stats.length * 20 + 10;
+    const passY = statsY + stats.length * 18 + 9;
     const passives: string[] = [];
     if (!c.canMelee) passives.push('Sem corpo a corpo');
     if (c.meleeBonus > 0) passives.push(`Corpo a corpo +${c.meleeBonus}`);
@@ -126,11 +137,12 @@ export class ClassSelectScene extends Phaser.Scene {
     if (c.pressureDamage > 0) passives.push(`Pressão ${c.pressureDamage}/turno`);
     if (!c.canShoot && c.id === 'limpador') passives.push('Apenas corpo a corpo');
     passives.forEach((p, i) => {
-      this.add.text(cx + 14, passY + i * 14, `\u25b8 ${p}`, {
+      this.add.text(cx + w / 2, passY + i * 12, `\u25b8 ${p}`, {
         fontFamily: FONT,
-        fontSize: '9px',
+        fontSize: '10px',
         color: COLORS.tagAccent,
-      });
+        align: 'center',
+      }).setOrigin(0.5);
     });
 
     const meta = loadMeta();
@@ -138,43 +150,46 @@ export class ClassSelectScene extends Phaser.Scene {
     const reqFloor = CLASS_FLOOR_UNLOCK[c.id];
 
     if (!unlocked) {
-      this.add.text(cx + w / 2, y + h - 30, reqFloor ? `\u{1F512} Andar ${reqFloor}` : '\u{1F512}', {
+      this.add.text(cx + w - 36, y + 46, reqFloor ? `\u{1F512} Andar ${reqFloor}` : '\u{1F512}', {
         fontFamily: FONT,
-        fontSize: '16px',
+        fontSize: '10px',
         color: COLORS.gold,
         fontStyle: 'bold',
-      }).setOrigin(0.5);
+      }).setOrigin(1, 0);
     }
 
     const b = loadBindings();
     c.abilities.forEach((a, i) => {
-      const ay = y + h - 60 - (c.abilities.length - 1 - i) * 34;
+      const ay = y + 312 + i * 52;
       const keyLabel = displayKey(i === 0 ? b.ability_0 : b.ability_1);
-      this.add.text(cx + 14, ay, `[${keyLabel}] ${a.name} (CD ${a.cooldown})`, {
+      this.add.text(cx + w / 2, ay, `[${keyLabel}] ${a.name} (CD ${a.cooldown})`, {
         fontFamily: FONT,
         fontSize: '9px',
         color: COLORS.subtitle,
-      });
-      this.add.text(cx + 14, ay + 16, a.description, {
+        align: 'center',
+        wordWrap: { width: w - 64 },
+      }).setOrigin(0.5);
+      this.add.text(cx + w / 2, ay + 13, a.description, {
         fontFamily: FONT,
         fontSize: '10px',
         color: COLORS.logText,
-        wordWrap: { width: 170 },
-      });
+        align: 'center',
+        wordWrap: { width: w - 64 },
+      }).setOrigin(0.5);
     });
   }
 
   private updateCardHighlights() {
     for (let i = 0; i < CLASSES.length; i++) {
-      const cx = 93 + i * 220;
-      const y = 110;
+      const cx = CARD_START_X + i * (CARD_W + CARD_GAP);
+      const y = CARD_Y;
       const g = this.cardGraphics[i];
       if (!g) continue;
       g.clear();
-      g.fillStyle(i === this.selectedIndex ? 0x0f2a22 : 0x0a1a18);
-      g.fillRoundedRect(cx, y, 200, 440, 6);
+      g.fillStyle(i === this.selectedIndex ? 0x0f2a22 : 0x0a1a18, 0.55);
+      g.fillRoundedRect(cx, y, CARD_W, CARD_H, 6);
       g.lineStyle(i === this.selectedIndex ? 2 : 1, i === this.selectedIndex ? 0x44ddbb : 0x2a4a3a);
-      g.strokeRoundedRect(cx, y, 200, 440, 6);
+      g.strokeRoundedRect(cx, y, CARD_W, CARD_H, 6);
     }
   }
 

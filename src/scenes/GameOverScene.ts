@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { CLASSES } from '../data/classes';
 import { FONT, COLORS } from '../theme';
 import { loadMeta, saveMeta, calcBitsEarned } from '../utils/metaSave';
-import { deleteRunSave } from '../utils/runSave';
+import { deleteRunSave, deleteCheckpoint, restoreCheckpoint } from '../utils/runSave';
 import { bgm } from '../audio/BGMPlayer';
 
 const CLASS_NAMES: Record<string, string> = {};
@@ -17,16 +17,18 @@ export class GameOverScene extends Phaser.Scene {
   private playerName: string = '';
   private className: string = '';
   private bitsEarned: number = 0;
+  private checkpointFloor: number = 0;
 
   constructor() {
     super('GameOver');
   }
 
-  init(data: { floor: number; level: number; kills: number; name: string; classId: string; bossKilled: boolean }) {
+  init(data: { floor: number; level: number; kills: number; name: string; classId: string; bossKilled: boolean; checkpointFloor?: number }) {
     this.stats = data;
     this.playerName = data.name;
     this.className = CLASS_NAMES[data.classId] ?? data.classId;
     this.bitsEarned = calcBitsEarned(data.floor, data.kills, data.bossKilled);
+    this.checkpointFloor = data.checkpointFloor ?? 0;
   }
 
   create() {
@@ -99,10 +101,16 @@ export class GameOverScene extends Phaser.Scene {
     div3.lineStyle(1, 0x2a4a3a);
     div3.lineBetween(320, btnY - 6, 704, btnY - 6);
 
-    this.addButton(512, btnY + 10, '[ Reiniciar ]', COLORS.accent, () => this.restartGame());
-    this.addButton(512, btnY + 65, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
+    let buttonOffset = 10;
+    if (this.checkpointFloor > 0) {
+      this.addButton(512, btnY + buttonOffset, `[ Voltar ao Checkpoint ${this.checkpointFloor} ]`, COLORS.subtitle, () => this.retryCheckpoint());
+      buttonOffset += 55;
+    }
+    this.addButton(512, btnY + buttonOffset, '[ Reiniciar ]', COLORS.accent, () => this.restartGame());
+    buttonOffset += 55;
+    this.addButton(512, btnY + buttonOffset, '[ Menu Inicial ]', COLORS.gold, () => this.goToMainMenu());
 
-    this.add.text(512, btnY + 115, 'Setas para navegar | ENTER para selecionar', {
+    this.add.text(512, btnY + buttonOffset + 50, 'Setas para navegar | ENTER para selecionar', {
       fontFamily: FONT,
       fontSize: '11px',
       color: COLORS.dimText,
@@ -152,7 +160,20 @@ export class GameOverScene extends Phaser.Scene {
     });
   }
 
+  private retryCheckpoint() {
+    if (!restoreCheckpoint()) return;
+    const meta = loadMeta();
+    meta.bits = Math.max(0, meta.bits - this.bitsEarned);
+    saveMeta(meta);
+    this.registry.set('restartPending', false);
+    this.scene.stop('HUD');
+    this.scene.stop('Game');
+    this.scene.stop();
+    this.scene.start('Game', { loadFromSave: true });
+  }
+
   private restartGame() {
+    deleteCheckpoint();
     this.registry.set('restartPending', true);
     this.scene.resume('Game');
     this.scene.resume('HUD');
@@ -160,6 +181,7 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   private goToMainMenu() {
+    deleteCheckpoint();
     this.registry.set('restartPending', false);
     this.scene.stop('HUD');
     this.scene.stop('Game');

@@ -22,9 +22,11 @@ import { META_UPGRADES, CLASS_FLOOR_UNLOCK } from '../data/metaUpgrades';
 import { loadMeta, saveMeta } from '../utils/metaSave';
 import { PURCHASABLE_ABILITIES } from '../data/purchasableAbilities';
 import { CLASSES, getClassById } from '../data/classes';
-import { saveRun, loadRunSave, deleteRunSave, restorePlayerFromSave, restoreMapFromSave, restoreEnemyBleeds, restoreChests } from '../utils/runSave';
+import { saveRun, saveCheckpoint, loadRunSave, loadCheckpoint, deleteRunSave, deleteCheckpoint, restorePlayerFromSave, restoreMapFromSave, restoreEnemyBleeds, restoreChests } from '../utils/runSave';
 import type { EnemyTemplate } from '../data/enemies';
 import { bgm } from '../audio/BGMPlayer';
+import { COLORS } from '../theme';
+import { showToast } from '../ui/Toast';
 
 export class GameScene extends Phaser.Scene {
   state!: GameState;
@@ -37,6 +39,7 @@ export class GameScene extends Phaser.Scene {
 
   isAnimating = false;
   tempMoveCooldown = 0;
+  shootCooldown = 0;
 
   classId: string = 'limpador';
 
@@ -77,24 +80,29 @@ export class GameScene extends Phaser.Scene {
       altarRoomIdx: -1,
       altarUsed: false,
       bossKilled: false,
+      bossSeen: false,
       classId: this.classId,
       enemyBleeds: new Map(),
     };
 
     this.renderSystem = new RenderSystem(this, this.state);
     this.projectileSystem = new ProjectileSystem(this, this.state, {
-      meleeAttack: (a, d, p) => this.combatSystem.meleeAttack(a, d, p),
+      meleeAttack: (a, d, p, m) => this.combatSystem.meleeAttack(a, d, p, m),
       onAnimationStart: () => { this.isAnimating = true; },
       onAnimationEnd: () => { this.isAnimating = false; this.endTurn(); },
     });
     this.combatSystem = new CombatSystem(this, this.state, {
       onEnemyDeath: (enemy) => this.handleEnemyDeath(enemy),
       spawnParticles: (x, y, tint, c) => this.renderSystem.spawnParticles(x, y, tint, c),
+      spawnFx: (x, y, key, size, duration) => this.renderSystem.spawnFx(x, y, key, size, duration),
+      spawnEnemyProjectile: (fx, fy, tx, ty) => this.renderSystem.spawnEnemyProjectile(fx, fy, tx, ty),
+      onPlayerDamaged: () => this.renderSystem.flashDamage(),
       enemyAt: (x, y) => this.projectileSystem.enemyAt(x, y),
     });
     this.actionSystem = new ActionSystem(this, this.state, {
-      meleeAttack: (a, d, p) => this.combatSystem.meleeAttack(a, d, p),
+      meleeAttack: (a, d, p, m) => this.combatSystem.meleeAttack(a, d, p, m),
       spawnParticles: (x, y, tint, c) => this.renderSystem.spawnParticles(x, y, tint, c),
+      spawnFx: (x, y, key, size, duration) => this.renderSystem.spawnFx(x, y, key, size, duration),
       onEnemyDeath: (enemy) => this.handleEnemyDeath(enemy),
       getDirEnemy: (dx, dy) => this.projectileSystem.getDirEnemy(dx, dy),
       onAnimationStart: () => { this.isAnimating = true; },
@@ -170,6 +178,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
+    if (this.shootCooldown > 0) this.shootCooldown -= delta;
     if (!this.state.player) return;
     if (this.isAnimating) return;
     this.inputHandler.handleMovement(delta);
@@ -182,6 +191,7 @@ export class GameScene extends Phaser.Scene {
     this.combatSystem.processClassPressure();
 
     this.state.fov.compute(this.state.map, this.state.player.x, this.state.player.y, (x, y) => this.renderSystem.onTileVisibilityChange(x, y));
+    this.markBossVisibleIfInSight(true);
 
     this.combatSystem.processAdjacentAttacks();
 
@@ -196,8 +206,7 @@ export class GameScene extends Phaser.Scene {
       this.handlePlayerDeath();
       return;
     }
-    this.projectileSystem.rebuildEnemyGrid();
-    this.combatSystem.rebuildEnemyMap();
+    this.rebuildSpatial();
 
     this.state.turnSystem.reset();
 
@@ -208,10 +217,28 @@ export class GameScene extends Phaser.Scene {
     this.renderSystem.centerOnPlayer();
   }
 
+  private markBossVisibleIfInSight(announce: boolean) {
+    if (this.state.bossSeen) return;
+    const boss = this.state.enemies.find(e => e.isAlive && e.textureKey === 'enemy_boss');
+    if (!boss || !this.state.map.visible[boss.y]?.[boss.x]) return;
+    this.state.bossSeen = true;
+    if (announce) {
+      sound.play('boss_appear');
+      this.state.messageLog.add('*** ROOTKIT À VISTA ***');
+      showToast(this, {
+        title: 'ROOTKIT À VISTA',
+        detail: `Chefe detectado no /system/${this.state.player.floor}`,
+        color: COLORS.error,
+      });
+    }
+    this.syncRegistry();
+  }
+
   private handlePlayerDeath() {
     bgm.stop();
     sound.play('player_death');
     this.renderSystem.spawnParticles(this.state.player.x, this.state.player.y, 0xff4444, 12);
+    this.renderSystem.spawnFx(this.state.player.x, this.state.player.y, 'fx_explosion', 64, 500);
     this.state.messageLog.add('*** SISTEMA FALHOU ***');
     trackEvent('player_death', { floor: this.state.player.floor, level: this.state.player.level, kills: this.state.kills });
     this.syncRegistry();
@@ -224,6 +251,7 @@ export class GameScene extends Phaser.Scene {
       name: this.state.player.name,
       classId: this.state.classId,
       bossKilled: this.state.bossKilled,
+      checkpointFloor: loadCheckpoint()?.player.floor ?? 0,
     });
   }
 
@@ -237,29 +265,31 @@ export class GameScene extends Phaser.Scene {
     return false;
   };
 
-  private rebuildOccGrid() {
+  private rebuildSpatial() {
     for (let i = 0; i < this.occGridDirty.length; i++) {
       this.occGrid[this.occGridDirty[i]] = 0;
     }
     this.occGridDirty.length = 0;
+    this.projectileSystem.clearEnemyGrid();
+    this.combatSystem.clearEnemyMap();
     const { enemies, chests } = this.state;
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
-      if (e.isAlive) {
-        const pos = e.y * MAP_W + e.x;
-        this.occGrid[pos] = 1;
-        this.occGridDirty.push(pos);
-      }
+      if (!e.isAlive) continue;
+      const pos = e.y * MAP_W + e.x;
+      this.occGrid[pos] = 1;
+      this.occGridDirty.push(pos);
+      this.projectileSystem.setEnemy(e);
+      this.combatSystem.addEnemy(e);
     }
     for (const [key, opened] of chests) {
-      if (!opened) {
-        const idx = key.indexOf(',');
-        const cx = parseInt(key.substring(0, idx), 10);
-        const cy = parseInt(key.substring(idx + 1), 10);
-        const pos = cy * MAP_W + cx;
-        this.occGrid[pos] = 1;
-        this.occGridDirty.push(pos);
-      }
+      if (opened) continue;
+      const idx = key.indexOf(',');
+      const cx = parseInt(key.substring(0, idx), 10);
+      const cy = parseInt(key.substring(idx + 1), 10);
+      const pos = cy * MAP_W + cx;
+      this.occGrid[pos] = 1;
+      this.occGridDirty.push(pos);
     }
   }
 
@@ -268,7 +298,7 @@ export class GameScene extends Phaser.Scene {
 
     this.combatSystem.processEnemyBleeds();
 
-    this.rebuildOccGrid();
+    this.rebuildSpatial();
 
     const { player, map } = this.state;
     const enemies = this.state.enemies;
@@ -314,7 +344,7 @@ export class GameScene extends Phaser.Scene {
         const dx = player.x - enemy.x;
         const dy = player.y - enemy.y;
         const dist = Math.max(Math.abs(dx), Math.abs(dy));
-        if (dist >= 2 && dist <= 5) {
+        if (dist >= 2 && dist <= enemy.rangedRange) {
           this.combatSystem.rangedAttack(enemy, player);
           if (!player.isAlive) return;
         }
@@ -326,6 +356,7 @@ export class GameScene extends Phaser.Scene {
     this.state.kills++;
     const color = enemy.textureKey === 'enemy_boss' ? 0xffd700 : 0xff4444;
     this.renderSystem.spawnParticles(enemy.x, enemy.y, color, 8);
+    this.renderSystem.spawnFx(enemy.x, enemy.y, 'fx_explosion', enemy.textureKey === 'enemy_boss' ? 64 : 48, 400);
     sound.play('enemy_death');
     this.state.messageLog.add(`${enemy.name} foi neutralizado.`);
 
@@ -336,6 +367,14 @@ export class GameScene extends Phaser.Scene {
 
     if (enemy.textureKey === 'enemy_boss' && this.state.bossRoomIdx !== -1) {
       this.state.bossKilled = true;
+      this.state.map.setTile(enemy.x, enemy.y, TileType.STAIRS_DOWN);
+      this.renderSystem.markDirty(enemy.x, enemy.y);
+      this.state.messageLog.add('*** ACESSO AO PRÓXIMO DIRETÓRIO LIBERADO ***');
+      showToast(this, {
+        title: 'ACESSO LIBERADO',
+        detail: 'A escada surgiu onde o rootkit caiu',
+        color: COLORS.accent,
+      });
       trackEvent('boss_kill', { floor: this.state.player.floor, level: this.state.player.level });
       this.actionSystem.showBossRewards();
     }
@@ -349,7 +388,13 @@ export class GameScene extends Phaser.Scene {
     const leveled = this.state.player.addXp(enemy.xpValue);
     if (leveled) {
       sound.play('level_up');
+      this.renderSystem.spawnFx(this.state.player.x, this.state.player.y, 'fx_levelup', 48, 600);
       this.state.messageLog.add(`*** SISTEMA ATUALIZADO para v${this.state.player.level} ***`);
+      showToast(this, {
+        title: `NÍVEL ${this.state.player.level}`,
+        detail: 'Recompensa por subir de nível',
+        color: COLORS.warning,
+      });
       trackEvent('level_up', { new_level: this.state.player.level, floor: this.state.player.floor, kills: this.state.kills });
       this.actionSystem.showRewardChoices('level');
     }
@@ -377,6 +422,7 @@ export class GameScene extends Phaser.Scene {
     this.state.altarRoomIdx = data.game.altarRoomIdx;
     this.state.altarUsed = data.game.altarUsed;
     this.state.bossKilled = data.game.bossKilled;
+    this.state.bossSeen = data.game.bossSeen ?? false;
     this.state.classId = data.player.classId;
     this.classId = data.player.classId;
 
@@ -397,6 +443,8 @@ export class GameScene extends Phaser.Scene {
         behavior: eData.behavior,
         minFloor: 1,
         splitOnDeath: eData.splitOnDeath,
+        rangedRange: eData.rangedRange,
+        fleeDistance: eData.fleeDistance,
       };
       const e = new Enemy(template, eData.x, eData.y);
       e.hp = eData.hp;
@@ -418,6 +466,7 @@ export class GameScene extends Phaser.Scene {
 
     this.renderSystem.createRenderObjects(p.classDef.textureKey);
     this.renderSystem.createEnemySprites();
+    this.renderSystem.setBossFloorTheme(this.state.bossRoomIdx !== -1);
 
     this.state.fov.compute(this.state.map, p.x, p.y, (x, y) => this.renderSystem.onTileVisibilityChange(x, y));
 
@@ -427,8 +476,8 @@ export class GameScene extends Phaser.Scene {
       p.cooldowns[i] = data.player.cooldowns[i];
     }
 
-    this.projectileSystem.rebuildEnemyGrid();
-    this.combatSystem.rebuildEnemyMap();
+    this.projectileSystem.syncClassMode();
+    this.rebuildSpatial();
     this.renderSystem.markAllDirty();
     this.renderSystem.redrawMap();
     this.renderSystem.syncEntitySprites();
@@ -440,33 +489,48 @@ export class GameScene extends Phaser.Scene {
 
   generateFloor(forceNewPlayer: boolean = false, startFloor: number = 0) {
     this.tempMoveCooldown = 0;
+    this.shootCooldown = 0;
     this.renderSystem.destroyAll();
     this.floorGenerator.generateFloor(forceNewPlayer, startFloor);
     this.renderSystem.createRenderObjects(this.state.player.classDef.textureKey);
     this.renderSystem.createEnemySprites();
-    this.projectileSystem.rebuildEnemyGrid();
-    this.combatSystem.rebuildEnemyMap();
+    this.renderSystem.setBossFloorTheme(this.state.bossRoomIdx !== -1);
+    this.projectileSystem.syncClassMode();
+    this.rebuildSpatial();
     this.renderSystem.markAllDirty();
     this.renderSystem.redrawMap();
     this.renderSystem.syncEntitySprites();
     this.renderSystem.centerOnPlayer();
+    this.markBossVisibleIfInSight(false);
 
     if (this.state.player.floor > 1) {
       sound.play('stairs_down');
       this.state.messageLog.add(`--- /system/dir_${this.state.player.floor} ---`);
-      if (this.state.player.floor % 5 === 0) {
+      const isBossFloor = this.state.bossRoomIdx !== -1;
+      if (isBossFloor) {
         sound.play('boss_appear');
         this.state.messageLog.add('*** ALERTA: ROOTKIT DETECTADO ***');
-      }
-      if (this.state.bossRoomIdx !== -1) {
         bgm.play('boss');
       }
+      showToast(this, {
+        title: `ANDAR ${this.state.player.floor}`,
+        detail: isBossFloor ? 'ROOTKIT DETECTADO' : 'Novo diretório carregado',
+        color: isBossFloor ? COLORS.error : COLORS.subtitle,
+      });
       trackEvent('floor_reach', { floor: this.state.player.floor, level: this.state.player.level });
     } else {
       this.state.messageLog.add(`SYSTEM PURGE v${version} — Kernel inicializado.`);
     }
 
     saveRun(this.state);
+    if (this.state.player.floor % 5 === 0) {
+      saveCheckpoint(this.state);
+      showToast(this, {
+        title: `CHECKPOINT ${this.state.player.floor}`,
+        detail: 'Progresso salvo neste diretório',
+        color: COLORS.accent,
+      });
+    }
 
     this.isAnimating = false;
   }
@@ -480,7 +544,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fullRestart() {
+    deleteCheckpoint();
     this.tempMoveCooldown = 0;
+    this.shootCooldown = 0;
     this.isAnimating = false;
     this.state.enemyBleeds.clear();
     this.state.kills = 0;
@@ -513,43 +579,67 @@ export class GameScene extends Phaser.Scene {
 
   private hudVersion = 0;
 
+  private setIfChanged<T>(key: string, value: T): void {
+    const prev = this.registry.get(key) as T;
+    if (prev === value) return;
+    if (Array.isArray(prev) && Array.isArray(value)) {
+      if (prev.length === value.length) {
+        let same = true;
+        for (let i = 0; i < prev.length; i++) {
+          if (prev[i] !== value[i]) { same = false; break; }
+        }
+        if (same) return;
+      }
+    }
+    this.registry.set(key, value);
+  }
+
   private syncStaticRegistry() {
     const p = this.state.player!;
     const R = RegistryKeys;
-    this.registry.set(R.name, p.name);
-    this.registry.set(R.baseFov, p.classDef.fov);
-    this.registry.set(R.baseMoveSpeed, p.classDef.moveSpeed);
-    this.registry.set(R.upgrades, p.acquiredUpgrades);
-    this.registry.set(R.inventory, p.inventory);
-    this.registry.set(R.unlockedSlots, p.unlockedSlots);
-    this.registry.set(R.classId, this.classId);
-    this.registry.set(R.abilities, p.classDef.abilities);
+    this.setIfChanged(R.name, p.name);
+    this.setIfChanged(R.baseFov, p.classDef.fov);
+    this.setIfChanged(R.baseMoveSpeed, p.classDef.moveSpeed);
+    this.setIfChanged(R.upgrades, p.acquiredUpgrades);
+    this.setIfChanged(R.inventory, p.inventory);
+    this.setIfChanged(R.unlockedSlots, p.unlockedSlots);
+    this.setIfChanged(R.classId, this.classId);
+    this.setIfChanged(R.abilities, p.classDef.abilities);
   }
 
   private syncRegistry() {
     const p = this.state.player!;
     const R = RegistryKeys;
-    this.registry.set(R.hp, p.hp);
-    this.registry.set(R.maxHp, p.maxHp);
-    this.registry.set(R.level, p.level);
-    this.registry.set(R.floor, p.floor);
-    this.registry.set(R.attack, p.attack);
-    this.registry.set(R.defense, p.defense);
-    this.registry.set(R.xp, p.xp);
-    this.registry.set(R.xpNext, p.xpToNext);
-    this.registry.set(R.kills, this.state.kills);
-    this.registry.set(R.bleedTicks, p.bleedTicks);
-    this.registry.set(R.defenseBuff, p.defenseBuffCharges);
-    this.registry.set(R.tempAtkBonus, p.tempAtkBonus);
-    this.registry.set(R.tempDefBonus, p.tempDefBonus);
-    this.registry.set(R.bonusFov, p.bonusFov);
-    this.registry.set(R.hasFatalGuard, p.hasFatalGuard);
-    this.registry.set(R.cooldownReduction, p.cooldownReduction);
-    this.registry.set(R.currentMoveSpeed, p.moveSpeed);
-    this.registry.set(R.cooldowns, p.cooldowns);
+    this.setIfChanged(R.hp, p.hp);
+    this.setIfChanged(R.maxHp, p.maxHp);
+    this.setIfChanged(R.level, p.level);
+    this.setIfChanged(R.floor, p.floor);
+    this.setIfChanged(R.attack, p.attack);
+    this.setIfChanged(R.defense, p.defense);
+    this.setIfChanged(R.xp, p.xp);
+    this.setIfChanged(R.xpNext, p.xpToNext);
+    this.setIfChanged(R.kills, this.state.kills);
+    this.setIfChanged(R.bleedTicks, p.bleedTicks);
+    this.setIfChanged(R.defenseBuff, p.defenseBuffCharges);
+    this.setIfChanged(R.tempAtkBonus, p.tempAtkBonus);
+    this.setIfChanged(R.tempAtkMultiplier, p.tempAtkMultiplier);
+    this.setIfChanged(R.tempAtkCharges, p.tempAtkCharges);
+    this.setIfChanged(R.tempDefBonus, p.tempDefBonus);
+    this.setIfChanged(R.shieldCharges, p.shieldCharges);
+    this.setIfChanged(R.bonusFov, p.bonusFov);
+    this.setIfChanged(R.hasFatalGuard, p.hasFatalGuard);
+    this.setIfChanged(R.hasDodge, p.hasDodge);
+    this.setIfChanged(R.hasRegen, p.hasRegen);
+    this.setIfChanged(R.reflectBuff, p.reflectBuffCharges);
+    this.setIfChanged(R.cooldownReduction, p.cooldownReduction);
+    this.setIfChanged(R.currentMoveSpeed, p.moveSpeed);
+    this.setIfChanged(R.cooldowns, p.cooldowns);
+    const boss = this.state.enemies.find(e => e.isAlive && e.textureKey === 'enemy_boss');
+    this.setIfChanged(R.bossAlive, !!boss);
+    this.setIfChanged(R.bossVisible, !!(boss && this.state.map.visible[boss.y]?.[boss.x]));
     const msgs = this.state.messageLog?.getLast(10) ?? [];
-    this.registry.set(R.messages, msgs);
+    this.setIfChanged(R.messages, msgs);
     this.hudVersion++;
-    this.registry.set(R.hud, this.hudVersion);
+    this.setIfChanged(R.hud, this.hudVersion);
   }
 }

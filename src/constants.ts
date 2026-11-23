@@ -3,9 +3,13 @@ export const MAP_H = 40;
 export const TILE = 32;
 export const MOVE_COOLDOWN_BASE = 120;
 export const TWEEN_DURATION_BASE = 60;
+export const SHOOT_COOLDOWN_BASE = 180;
+export const PROJECTILE_RANGE_BASE = 8;
 
 export const TRAP_DMG_MIN = 2;
 export const TRAP_DMG_MAX = 5;
+export const TRAP_DAMAGE_CAP_PERCENT = 0.2;
+export const TRAP_RESISTANCE_PER_LEVEL = 0.15;
 export const BLEED_DAMAGE = 1;
 export const BLEED_TICKS = 3;
 export const LAMINA_BLEED_DMG = 1;
@@ -17,7 +21,8 @@ export const OVERCLOCK_DURATION = 5;
 export const DEFRAG_DEF_BONUS = 5;
 export const DEFRAG_DURATION = 5;
 export const NETWORK_PULSE_DMG = 6;
-export const HEALTH_PATCH_HEAL = 15;
+export const HEALTH_PATCH_HEAL_PERCENT = 0.25;
+export const BOSS_HEAL_PERCENT = 0.25;
 export const REFLECT_DAMAGE = 2;
 export const ENCRYPTION_REDUCTION = 3;
 

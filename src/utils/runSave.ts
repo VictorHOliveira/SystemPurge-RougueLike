@@ -8,6 +8,7 @@ import { TileType } from '../data/tiles';
 import { MAP_W, MAP_H } from '../constants';
 
 const STORAGE_KEY = 'systempurge_run';
+const CHECKPOINT_KEY = 'systempurge_checkpoint';
 
 export interface RunSaveData {
   version: string;
@@ -20,16 +21,16 @@ export interface RunSaveData {
     acquiredUpgrades: [string, number][];
     inventory: (string | null)[];
     unlockedSlots: number;
-    tempAtkBonus: number; tempAtkCharges: number;
+    tempAtkBonus: number; tempAtkMultiplier: number; tempAtkCharges: number;
     tempDefBonus: number; tempDefCharges: number;
-    bonusFov: number; moveSpeed: number;
+    bonusFov: number; bonusProjectileRange: number; projectileDamageBonus: number; moveSpeed: number;
     fatalGuardUsed: boolean; fatalGuardTriggered: boolean; encryptionLayerUsed: boolean;
     regenTicker: number; regenAccum: number; hasRegenCached: boolean;
     cooldowns: number[]; cooldownReduction: number;
     defenseBuffCharges: number;
     bleedTicks: number; bleedDamage: number; hasUsedAbility: boolean;
     extraBleedDamage: number; overflowRange: number;
-    shieldNextHit: boolean; reflectBuffCharges: number;
+    shieldNextHit?: boolean; shieldCharges?: number; reflectBuffCharges: number;
   };
   enemies: {
     idx: number;
@@ -38,6 +39,7 @@ export interface RunSaveData {
     textureKey: string; behavior: EnemyBehavior;
     isElite: boolean; splitOnDeath?: string;
     skipNextTurn: boolean; xpValue: number;
+    rangedRange?: number; fleeDistance?: number;
   }[];
   game: {
     kills: number;
@@ -46,6 +48,7 @@ export interface RunSaveData {
     altarRoomIdx: number;
     altarUsed: boolean;
     bossKilled: boolean;
+    bossSeen: boolean;
     chests: [string, boolean][];
     enemyBleeds: [number, { ticks: number; damage: number }][];
     messages: string[];
@@ -56,9 +59,9 @@ export interface RunSaveData {
   };
 }
 
-export function saveRun(state: GameState): void {
+function buildRunData(state: GameState): RunSaveData {
   const p = state.player;
-  const data: RunSaveData = {
+  return {
     version,
     timestamp: Date.now(),
     player: {
@@ -69,9 +72,9 @@ export function saveRun(state: GameState): void {
       acquiredUpgrades: [...p.acquiredUpgrades.entries()],
       inventory: [...p.inventory],
       unlockedSlots: p.unlockedSlots,
-      tempAtkBonus: p.tempAtkBonus, tempAtkCharges: p.tempAtkCharges,
+      tempAtkBonus: p.tempAtkBonus, tempAtkMultiplier: p.tempAtkMultiplier, tempAtkCharges: p.tempAtkCharges,
       tempDefBonus: p.tempDefBonus, tempDefCharges: p.tempDefCharges,
-      bonusFov: p.bonusFov, moveSpeed: p.moveSpeed,
+      bonusFov: p.bonusFov, bonusProjectileRange: p.bonusProjectileRange, projectileDamageBonus: p.projectileDamageBonus, moveSpeed: p.moveSpeed,
       fatalGuardUsed: p.fatalGuardUsed, fatalGuardTriggered: p.fatalGuardTriggered,
       encryptionLayerUsed: p.encryptionLayerUsed,
       regenTicker: p.regenTicker, regenAccum: p.regenAccum,
@@ -81,7 +84,7 @@ export function saveRun(state: GameState): void {
       bleedTicks: p.bleedTicks, bleedDamage: p.bleedDamage,
       hasUsedAbility: p.hasUsedAbility,
       extraBleedDamage: p.extraBleedDamage, overflowRange: p.overflowRange,
-      shieldNextHit: p.shieldNextHit, reflectBuffCharges: p.reflectBuffCharges,
+      shieldNextHit: p.shieldNextHit, shieldCharges: p.shieldCharges, reflectBuffCharges: p.reflectBuffCharges,
     },
     enemies: state.enemies
       .filter(e => e.isAlive)
@@ -92,6 +95,7 @@ export function saveRun(state: GameState): void {
         textureKey: e.textureKey, behavior: e.behavior,
         isElite: e.isElite, splitOnDeath: e.splitOnDeath,
         skipNextTurn: e.skipNextTurn, xpValue: e.xpValue,
+        rangedRange: e.rangedRange, fleeDistance: e.fleeDistance,
       })),
     game: {
       kills: state.kills,
@@ -100,6 +104,7 @@ export function saveRun(state: GameState): void {
       altarRoomIdx: state.altarRoomIdx,
       altarUsed: state.altarUsed,
       bossKilled: state.bossKilled,
+      bossSeen: state.bossSeen,
       chests: [...state.chests.entries()],
       enemyBleeds: [...state.enemyBleeds.entries()].map(([id, val]) => {
         const enemy = state.enemies.find(e => e.id === id);
@@ -112,11 +117,58 @@ export function saveRun(state: GameState): void {
       explored: state.map.explored.map(row => [...row]),
     },
   };
+}
 
+export function saveRun(state: GameState): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(buildRunData(state)));
   } catch {
     // localStorage full ou indisponível; run segue sem save
+  }
+}
+
+export function saveCheckpoint(state: GameState): void {
+  try {
+    localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(buildRunData(state)));
+  } catch {
+  }
+}
+
+export function loadCheckpoint(): RunSaveData | null {
+  try {
+    const raw = localStorage.getItem(CHECKPOINT_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as RunSaveData;
+    if (typeof data.version !== 'string') return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export function hasCheckpoint(): boolean {
+  try {
+    return localStorage.getItem(CHECKPOINT_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function deleteCheckpoint(): void {
+  try {
+    localStorage.removeItem(CHECKPOINT_KEY);
+  } catch {
+  }
+}
+
+export function restoreCheckpoint(): boolean {
+  const data = loadCheckpoint();
+  if (!data) return false;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -167,10 +219,13 @@ export function restorePlayerFromSave(data: RunSaveData, player: Player): void {
   }
 
   player.tempAtkBonus = sp.tempAtkBonus;
+  player.tempAtkMultiplier = sp.tempAtkMultiplier ?? 1;
   player.tempAtkCharges = sp.tempAtkCharges;
   player.tempDefBonus = sp.tempDefBonus;
   player.tempDefCharges = sp.tempDefCharges;
   player.bonusFov = sp.bonusFov;
+  player.bonusProjectileRange = sp.bonusProjectileRange ?? 0;
+  player.projectileDamageBonus = sp.projectileDamageBonus ?? 0;
   player.moveSpeed = sp.moveSpeed;
 
   player.fatalGuardUsed = sp.fatalGuardUsed;
@@ -188,7 +243,7 @@ export function restorePlayerFromSave(data: RunSaveData, player: Player): void {
   player.hasUsedAbility = sp.hasUsedAbility;
   player.extraBleedDamage = sp.extraBleedDamage;
   player.overflowRange = sp.overflowRange;
-  player.shieldNextHit = sp.shieldNextHit;
+  player.shieldCharges = sp.shieldCharges ?? (sp.shieldNextHit ? 1 : 0);
   player.reflectBuffCharges = sp.reflectBuffCharges;
 }
 

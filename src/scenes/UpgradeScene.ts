@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
-import { Upgrade } from '../data/upgrades';
+import { Upgrade, UPGRADE_ICONS } from '../data/upgrades';
 import { ItemDef } from '../data/items';
 import { trackEvent } from '../analytics';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
+import { showToast } from '../ui/Toast';
 
 interface CardOption {
   kind: 'upgrade' | 'item' | 'heal';
@@ -12,6 +13,7 @@ interface CardOption {
   tag: string;
   tagColor: string;
   subtitle?: string;
+  icon?: string;
 }
 
 export class UpgradeScene extends Phaser.Scene {
@@ -51,6 +53,7 @@ export class UpgradeScene extends Phaser.Scene {
         tag: u.category.toUpperCase(),
         tagColor: u.category === 'passive' ? COLORS.tagAccent : COLORS.statAtk,
         subtitle: lvlTag,
+        icon: UPGRADE_ICONS[u.id] ?? (u.category === 'passive' ? 'ui_upgrade_passive' : 'ui_upgrade_atk'),
       });
     }
     for (const item of data.items) {
@@ -61,6 +64,7 @@ export class UpgradeScene extends Phaser.Scene {
         description: item.description,
         tag: 'ITEM',
         tagColor: COLORS.gold,
+        icon: item.icon,
       });
     }
     if (data.heals) {
@@ -148,13 +152,19 @@ export class UpgradeScene extends Phaser.Scene {
     const opt = this.options[this.selectedIndex];
     trackEvent('upgrade_select', { upgrade_id: opt.id, upgrade_name: opt.name, floor: this.floor });
     this.onSelect(opt.kind, opt.id);
+    const prefix = opt.kind === 'upgrade' ? 'MELHORIA' : opt.kind === 'item' ? 'ITEM' : 'RECUPERAÇÃO';
+    showToast(this.scene.get('Game'), {
+      title: `${prefix}: ${opt.name}`,
+      detail: opt.description,
+      color: opt.kind === 'upgrade' ? COLORS.accent : opt.kind === 'item' ? COLORS.gold : COLORS.subtitle,
+    });
     this.scene.stop();
   }
 
   private highlight(idx: number) {
     this.cards.forEach((card, i) => {
       card.bg.clear();
-      card.bg.fillStyle(0x0a1a18);
+      card.bg.fillStyle(i === idx ? 0x0f2a22 : 0x0a1a18);
       card.bg.fillRoundedRect(260, card.y, 440, 74, 4);
       card.bg.lineStyle(i === idx ? 2 : 1, i === idx ? 0x44ddbb : 0x2a4a3a);
       card.bg.strokeRoundedRect(260, card.y, 440, 74, 4);
@@ -174,12 +184,16 @@ export class UpgradeScene extends Phaser.Scene {
 
     this.cards.push({ bg, y });
 
-    this.add.text(cx - w / 2 + 22, y + 14, `[${index + 1}]`, {
+    this.add.text(cx - w / 2 + 12, y + 14, `[${index + 1}]`, {
       fontFamily: FONT,
       fontSize: '22px',
       color: COLORS.subtitle,
       fontStyle: 'bold',
     });
+
+    if (opt.icon) {
+      this.add.image(cx - w / 2 + 54, y + 37, opt.icon).setDisplaySize(22, 22);
+    }
 
     this.add.text(cx - w / 2 + 78, y + 10, opt.tag, {
       fontFamily: FONT,

@@ -7,7 +7,7 @@ import { Entity } from '../entities/Entity';
 import { sound } from '../audio/SoundManager';
 
 export interface ProjectileCallbacks {
-  meleeAttack: (attacker: Entity, defender: Entity, isProjectile?: boolean) => void;
+  meleeAttack: (attacker: Entity, defender: Entity, isProjectile?: boolean, damageMultiplier?: number) => void;
   onAnimationStart: () => void;
   onAnimationEnd: () => void;
 }
@@ -46,22 +46,23 @@ export class ProjectileSystem {
     return p;
   }
 
-  rebuildEnemyGrid() {
-    const { enemies } = this.state;
-    this.isDaemon = this.state.classId === 'daemon';
-    this.updateProjectileTexture();
+  clearEnemyGrid() {
     for (const packed of this.gridOccupied) {
       const x = packed & 0xFFFF;
       const y = packed >>> 16;
       this.enemyGrid[y][x] = null;
     }
     this.gridOccupied.length = 0;
-    for (const e of enemies) {
-      if (e.isAlive) {
-        this.enemyGrid[e.y][e.x] = e;
-        this.gridOccupied.push((e.y << 16) | e.x);
-      }
-    }
+  }
+
+  setEnemy(e: Enemy) {
+    this.enemyGrid[e.y][e.x] = e;
+    this.gridOccupied.push((e.y << 16) | e.x);
+  }
+
+  syncClassMode() {
+    this.isDaemon = this.state.classId === 'daemon';
+    this.updateProjectileTexture();
   }
 
   enemyAt(x: number, y: number): Enemy | null {
@@ -81,7 +82,7 @@ export class ProjectileSystem {
 
   getDirEnemy(dx: number, dy: number): { x: number; y: number; enemy: Enemy | null } {
     const { map, player } = this.state;
-    const range = Math.ceil(player.effectiveFov);
+    const range = Math.ceil(player.projectileRange);
     for (let i = 1; i <= range; i++) {
       const tx = player.x + dx * i;
       const ty = player.y + dy * i;
@@ -98,7 +99,7 @@ export class ProjectileSystem {
     const { map, player, messageLog } = this.state;
 
     const pierce = player.classDef.projectilesPierce;
-    const range = Math.ceil(player.effectiveFov);
+    const range = Math.ceil(player.projectileRange);
 
     const proj = this.getProjImage();
     proj.setTexture(this.projectileTexture);
@@ -115,7 +116,7 @@ export class ProjectileSystem {
         endX = tx;
         endY = ty;
         const enemy = this.enemyAt(tx, ty);
-        if (enemy?.isAlive) enemiesHit.push(enemy);
+        if (enemy?.isAlive && enemiesHit.length < 3) enemiesHit.push(enemy);
       }
       if (endX === player.x && endY === player.y) {
         proj.setVisible(false);

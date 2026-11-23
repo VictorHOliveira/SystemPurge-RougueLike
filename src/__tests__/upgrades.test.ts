@@ -6,6 +6,12 @@ describe('ALL_UPGRADES', () => {
     expect(ALL_UPGRADES.length).toBeGreaterThan(20);
   });
 
+  it('includes range and trap resistance upgrades', () => {
+    const ids = ALL_UPGRADES.map(u => u.id);
+    expect(ids).toContain('projectile_range');
+    expect(ids).toContain('trap_resistance');
+  });
+
   it('has no duplicate ids', () => {
     const ids = ALL_UPGRADES.map(u => u.id);
     expect(new Set(ids).size).toBe(ids.length);

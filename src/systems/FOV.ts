@@ -27,7 +27,21 @@ export class FOVSystem {
   compute(map: GameMap, ox: number, oy: number, onVisibilityChange?: (x: number, y: number) => void): void {
     this.currentMap = map;
 
+    const nextVisible = new Set<number>();
+    this.fov.compute(ox, oy, this.radius, (x, y, _r, visibility) => {
+      if (visibility > 0 && map.isInBounds(x, y)) {
+        const key = y * MAP_W + x;
+        nextVisible.add(key);
+        if (!map.visible[y][x]) {
+          map.visible[y][x] = true;
+          map.explored[y][x] = true;
+          onVisibilityChange?.(x, y);
+        }
+      }
+    });
+
     for (const key of this.prevVisible) {
+      if (nextVisible.has(key)) continue;
       const x = key % MAP_W;
       const y = Math.floor(key / MAP_W);
       if (map.visible[y][x]) {
@@ -35,15 +49,7 @@ export class FOVSystem {
         onVisibilityChange?.(x, y);
       }
     }
-    this.prevVisible.clear();
 
-    this.fov.compute(ox, oy, this.radius, (x, y, _r, visibility) => {
-      if (visibility > 0 && map.isInBounds(x, y)) {
-        if (!map.visible[y][x]) onVisibilityChange?.(x, y);
-        map.visible[y][x] = true;
-        map.explored[y][x] = true;
-        this.prevVisible.add(y * MAP_W + x);
-      }
-    });
+    this.prevVisible = nextVisible;
   }
 }

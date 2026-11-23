@@ -21,6 +21,9 @@ const config: Phaser.Types.Core.GameConfig = {
   pixelArt: true,
   roundPixels: true,
   backgroundColor: '#000000',
+  render: {
+    powerPreference: 'high-performance',
+  },
   scene: [BootScene, MainMenuScene, ClassSelectScene, GameScene, HUDScene, UpgradeScene, PauseScene, KeyBindScene, ConfigScene, AudioScene, GameOverScene, ShopScene, ClassUnlockScene, CompendiumScene],
   scale: {
     mode: Phaser.Scale.FIT,

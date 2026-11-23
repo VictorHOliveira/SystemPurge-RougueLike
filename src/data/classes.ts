@@ -1,5 +1,6 @@
 export interface ClassAbility {
   id: string;
+  icon: string;
   name: string;
   description: string;
   cooldown: number;          // turnos de cooldown
@@ -22,6 +23,7 @@ export interface PlayerClass {
   canShoot: boolean;
   meleeBonus: number;
   meleeMultiplier: number;
+  rangedMultiplier: number;
   ignoreDefense: boolean;
   projectilesPierce: boolean;
   reflectPercent: number;
@@ -45,6 +47,7 @@ export const CLASSES: PlayerClass[] = [
     canShoot: false,
     meleeBonus: 2,
     meleeMultiplier: 1,
+    rangedMultiplier: 1,
     ignoreDefense: false,
     projectilesPierce: false,
     reflectPercent: 0,
@@ -52,6 +55,7 @@ export const CLASSES: PlayerClass[] = [
     abilities: [
       {
         id: 'varredura',
+        icon: 'ability_varredura',
         name: 'Varredura',
         description: 'Ataca todos os inimigos adjacentes',
         cooldown: 5,
@@ -75,6 +79,7 @@ export const CLASSES: PlayerClass[] = [
     canShoot: true,
     meleeBonus: 0,
     meleeMultiplier: 1,
+    rangedMultiplier: 1.2,
     ignoreDefense: false,
     projectilesPierce: true,
     reflectPercent: 0,
@@ -82,6 +87,7 @@ export const CLASSES: PlayerClass[] = [
     abilities: [
       {
         id: 'rajada',
+        icon: 'ability_rajada',
         name: 'Rajada de Pacotes',
         description: '3 projéteis em leque com 1,5× de dano',
         cooldown: 6,
@@ -94,7 +100,7 @@ export const CLASSES: PlayerClass[] = [
   {
     id: 'muralha',
     name: 'Muralha de Dados',
-    description: 'Firewall ambulante. Absorve dano e retorna o ataque.',
+    description: 'Firewall ambulante. Absorve dano, reflete ataques e combate corpo a corpo.',
     textureKey: 'class_muralha',
     hp: 45,
     attack: 3,
@@ -104,7 +110,8 @@ export const CLASSES: PlayerClass[] = [
     canMelee: true,
     canShoot: true,
     meleeBonus: 0,
-    meleeMultiplier: 0.5,
+    meleeMultiplier: 1,
+    rangedMultiplier: 0.8,
     ignoreDefense: false,
     projectilesPierce: false,
     reflectPercent: 50,
@@ -112,6 +119,7 @@ export const CLASSES: PlayerClass[] = [
     abilities: [
       {
         id: 'criptografia',
+        icon: 'ability_criptografia',
         name: 'Criptografia Total',
         description: 'Reduz dano recebido em 50% por 3 ataques',
         cooldown: 8,
@@ -136,6 +144,7 @@ export const CLASSES: PlayerClass[] = [
     canShoot: true,
     meleeBonus: 0,
     meleeMultiplier: 1,
+    rangedMultiplier: 1,
     ignoreDefense: true,
     projectilesPierce: false,
     reflectPercent: 0,
@@ -143,6 +152,7 @@ export const CLASSES: PlayerClass[] = [
     abilities: [
       {
         id: 'overflow',
+        icon: 'ability_overflow',
         name: 'Overflow de Pilha',
         description: '8 de dano em área + sangra 2 por 6 turnos',
         cooldown: 5,
@@ -152,6 +162,7 @@ export const CLASSES: PlayerClass[] = [
       },
       {
         id: 'vazamento',
+        icon: 'ability_vazamento',
         name: 'Vazamento de Memória',
         description: '10 de dano ao inimigo mais próximo',
         cooldown: 4,

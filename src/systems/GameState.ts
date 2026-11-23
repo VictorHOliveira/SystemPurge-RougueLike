@@ -19,6 +19,7 @@ export interface GameState {
   altarRoomIdx: number;
   altarUsed: boolean;
   bossKilled: boolean;
+  bossSeen: boolean;
   classId: string;
   enemyBleeds: Map<string, { ticks: number; damage: number }>;
 }

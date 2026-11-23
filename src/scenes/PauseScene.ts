@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { sound } from '../audio/SoundManager';
 import { FONT, COLORS } from '../theme';
 import { loadMeta } from '../utils/metaSave';
-import { saveRun, deleteRunSave } from '../utils/runSave';
+import { saveRun, deleteRunSave, deleteCheckpoint } from '../utils/runSave';
 import { bgm } from '../audio/BGMPlayer';
 
 export class PauseScene extends Phaser.Scene {
@@ -240,6 +240,7 @@ export class PauseScene extends Phaser.Scene {
 
   private restartGame() {
     deleteRunSave();
+    deleteCheckpoint();
     this.registry.set('restartPending', true);
     this.scene.resume('Game');
     this.scene.resume('HUD');
@@ -248,6 +249,7 @@ export class PauseScene extends Phaser.Scene {
 
   private goToMainMenu() {
     deleteRunSave();
+    deleteCheckpoint();
     this.registry.set('restartPending', false);
     this.scene.stop('HUD');
     this.scene.stop('Game');

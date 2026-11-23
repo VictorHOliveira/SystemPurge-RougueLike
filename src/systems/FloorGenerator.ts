@@ -28,6 +28,9 @@ export class FloorGenerator {
     const corridorTiles = this.collectCorridorTiles(result.rooms);
 
     this.selectSpecialRooms(result.rooms);
+    if (this.state.player.floor % 10 === 0 && this.state.bossRoomIdx !== -1) {
+      this.state.map.setTile(result.stairsPos.x, result.stairsPos.y, TileType.FLOOR);
+    }
     this.spawnEnemies(result.rooms, corridorTiles, floorMult, occupiedPositions);
     this.scatterTraps(result.rooms, occupiedPositions);
 
@@ -107,6 +110,7 @@ export class FloorGenerator {
     this.state.enemies = [];
     this.state.chests.clear();
     this.state.altarUsed = false;
+    this.state.bossSeen = false;
 
     return result;
   }
@@ -171,7 +175,11 @@ export class FloorGenerator {
     const corridorCount = Math.floor(this.state.player.floor / 5);
     if (corridorCount === 0) return;
 
-    const shuffled = [...corridorTiles].sort(() => Math.random() - 0.5);
+    const shuffled = [...corridorTiles];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     let placed = 0;
     for (const tile of shuffled) {
       if (placed >= corridorCount) break;
@@ -185,7 +193,7 @@ export class FloorGenerator {
   }
 
   private scatterTraps(rooms: GameMap['rooms'], occupiedPositions: Set<number>) {
-    const trapCount = 2 + Math.floor(this.state.player.floor / 2);
+    const trapCount = Math.min(8, 2 + Math.floor(this.state.player.floor / 4));
     const selected: { x: number; y: number }[] = [];
 
     const startRoom = rooms[0];

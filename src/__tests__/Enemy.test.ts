@@ -38,6 +38,12 @@ describe('Enemy', () => {
       const e = meleeEnemy();
       expect(e.xpValue).toBeGreaterThan(0);
     });
+
+    it('defaults ranged range and flee distance', () => {
+      const e = rangedEnemy();
+      expect(e.rangedRange).toBe(5);
+      expect(e.fleeDistance).toBe(3);
+    });
   });
 
   describe('skipNextTurn', () => {

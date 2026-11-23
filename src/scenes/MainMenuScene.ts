@@ -3,7 +3,7 @@ import { version } from '../../package.json';
 import { sound } from '../audio/SoundManager';
 import { FONT, COLORS, FONT_SIZES } from '../theme';
 import { loadMeta, saveMeta, defaultMeta } from '../utils/metaSave';
-import { hasRunSave, deleteRunSave } from '../utils/runSave';
+import { hasRunSave, deleteRunSave, deleteCheckpoint } from '../utils/runSave';
 import { bgm } from '../audio/BGMPlayer';
 
 export class MainMenuScene extends Phaser.Scene {
@@ -28,6 +28,14 @@ export class MainMenuScene extends Phaser.Scene {
     this.submenuGroup = undefined;
 
     this.cameras.main.setBackgroundColor('#000810');
+    if (this.textures.exists('ui_menu_bg')) {
+      this.add.image(512, 320, 'ui_menu_bg').setDisplaySize(1024, 640).setDepth(-10);
+      const panel = this.add.graphics().setDepth(-5);
+      panel.fillStyle(0x000000, 0.95);
+      panel.fillRoundedRect(212, 60, 600, 530, 8);
+      panel.lineStyle(1, 0x2a4a3a, 0.8);
+      panel.strokeRoundedRect(212, 60, 600, 530, 8);
+    }
     this.playBootSequence();
   }
 
@@ -52,7 +60,7 @@ export class MainMenuScene extends Phaser.Scene {
 
     lines.forEach((line, i) => {
       this.time.delayedCall(70 * (i + 1), () => {
-        const t = this.add.text(120, startY + i * 18, line.text, {
+        const t = this.add.text(230, startY + i * 18, line.text, {
           fontFamily: FONT,
           fontSize: '12px',
           color: line.color,
@@ -494,6 +502,7 @@ export class MainMenuScene extends Phaser.Scene {
 
   private startGame() {
     deleteRunSave();
+    deleteCheckpoint();
     this.scene.start('ClassSelect');
   }
 }

@@ -22,12 +22,15 @@ describe('getClassById', () => {
     expect(c.id).toBe('ping_sniper');
     expect(c.canShoot).toBe(true);
     expect(c.canMelee).toBe(false);
+    expect(c.rangedMultiplier).toBeGreaterThan(1);
   });
 
   it('returns muralha class', () => {
     const c = getClassById('muralha');
     expect(c.reflectPercent).toBe(50);
     expect(c.pressureDamage).toBe(1);
+    expect(c.meleeMultiplier).toBe(1);
+    expect(c.rangedMultiplier).toBeLessThan(1);
   });
 
   it('returns daemon class', () => {

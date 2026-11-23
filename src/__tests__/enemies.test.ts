@@ -16,6 +16,14 @@ describe('ENEMY_TEMPLATES', () => {
       expect(['melee', 'ranged', 'suicide', 'splitter']).toContain(t.behavior);
     }
   });
+
+  it('has an evolved ranged enemy from floor 15', () => {
+    const t = ENEMY_TEMPLATES.find(e => e.name === 'backdoor.bin');
+    expect(t).toBeDefined();
+    expect(t!.behavior).toBe('ranged');
+    expect(t!.minFloor).toBe(15);
+    expect(t!.rangedRange).toBe(7);
+  });
 });
 
 describe('randomEnemyTemplate', () => {

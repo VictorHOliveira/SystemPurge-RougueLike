@@ -12,6 +12,8 @@ export class Enemy extends Entity {
   isElite: boolean = false;
   splitOnDeath?: string;
   skipNextTurn: boolean = false;
+  rangedRange: number;
+  fleeDistance: number;
 
   constructor(template: EnemyTemplate, x: number, y: number) {
     super(
@@ -27,6 +29,8 @@ export class Enemy extends Entity {
     this.xpValue = Math.max(1, template.hp + template.attack);
     this.behavior = template.behavior;
     this.splitOnDeath = template.splitOnDeath;
+    this.rangedRange = template.rangedRange ?? 5;
+    this.fleeDistance = template.fleeDistance ?? 3;
   }
 
   takeTurn(
@@ -81,7 +85,7 @@ export class Enemy extends Entity {
     const dy = playerY - this.y;
     const dist = Math.max(Math.abs(dx), Math.abs(dy));
 
-    if (dist < 3) {
+    if (dist < this.fleeDistance) {
       const moveDx = Math.sign(dx) * -1;
       const moveDy = Math.sign(dy) * -1;
       const nx = this.x + moveDx;

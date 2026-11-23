@@ -18,6 +18,13 @@ describe('Player', () => {
       p.tempAtkBonus = 3;
       expect(p.effectiveAtk).toBe(p.attack + 3);
     });
+
+    it('applies tempAtkMultiplier', () => {
+      const p = makePlayer();
+      p.tempAtkBonus = 2;
+      p.tempAtkMultiplier = 2;
+      expect(p.effectiveAtk).toBe((p.attack + 2) * 2);
+    });
   });
 
   describe('effectiveDef', () => {
@@ -73,6 +80,69 @@ describe('Player', () => {
       const p = makePlayer();
       p.acquiredUpgrades.set('network_shield', 5);
       expect(p.reflectChance).toBe(0.50);
+    });
+  });
+
+  describe('trap mitigation', () => {
+    it('has no resistance without trap_resistance', () => {
+      const p = makePlayer();
+      expect(p.trapResistance).toBe(0);
+      expect(p.trapDamageCap).toBe(Math.ceil(p.maxHp * 0.2));
+    });
+
+    it('reduces damage and cap per trap_resistance level', () => {
+      const p = makePlayer();
+      p.applyUpgrade('trap_resistance');
+      p.applyUpgrade('trap_resistance');
+      expect(p.trapResistance).toBeCloseTo(0.3);
+      expect(p.trapDamageCap).toBeLessThan(Math.ceil(p.maxHp * 0.2));
+    });
+
+    it('stops at level 3 resistance', () => {
+      const p = makePlayer();
+      for (let i = 0; i < 5; i++) p.applyUpgrade('trap_resistance');
+      expect(p.trapResistance).toBeCloseTo(0.45);
+    });
+  });
+
+  describe('consumeAttackCharges', () => {
+    it('clears both flat and multiplier buffs at the last charge', () => {
+      const p = makePlayer();
+      p.tempAtkBonus = 5;
+      p.tempAtkMultiplier = 2;
+      p.tempAtkCharges = 1;
+      p.consumeAttackCharges();
+      expect(p.tempAtkCharges).toBe(0);
+      expect(p.tempAtkBonus).toBe(0);
+      expect(p.tempAtkMultiplier).toBe(1);
+    });
+
+    it('keeps buffs active while charges remain', () => {
+      const p = makePlayer();
+      p.tempAtkMultiplier = 2;
+      p.tempAtkCharges = 2;
+      p.consumeAttackCharges();
+      expect(p.tempAtkCharges).toBe(1);
+      expect(p.tempAtkMultiplier).toBe(2);
+    });
+  });
+
+  describe('shieldCharges', () => {
+    it('consumes charges one hit at a time', () => {
+      const p = makePlayer();
+      p.shieldCharges = 2;
+      expect(p.consumeShield()).toBe(true);
+      expect(p.shieldCharges).toBe(1);
+      expect(p.consumeShield()).toBe(true);
+      expect(p.consumeShield()).toBe(false);
+    });
+
+    it('keeps shieldNextHit compatible with charges', () => {
+      const p = makePlayer();
+      p.shieldNextHit = true;
+      expect(p.shieldCharges).toBe(1);
+      p.shieldNextHit = false;
+      expect(p.shieldCharges).toBe(0);
     });
   });
 
@@ -311,7 +381,22 @@ describe('Player', () => {
       const p = makePlayer();
       const oldSpeed = p.moveSpeed;
       p.applyUpgrade('speed_boost');
-      expect(p.moveSpeed).toBe(oldSpeed + 0.5);
+      expect(p.moveSpeed).toBeCloseTo(oldSpeed + 0.2);
+    });
+
+    it('projectile_range increases projectile range', () => {
+      const p = makePlayer();
+      const oldRange = p.projectileRange;
+      p.applyUpgrade('projectile_range');
+      expect(p.projectileRange).toBe(oldRange + 2);
+    });
+
+    it('mira_a_laser increases only projectile damage', () => {
+      const p = makePlayer('ping_sniper');
+      const oldAtk = p.attack;
+      p.applyUpgrade('mira_a_laser');
+      expect(p.attack).toBe(oldAtk);
+      expect(p.projectileDamageBonus).toBe(3);
     });
 
     it('system_restore fully heals', () => {

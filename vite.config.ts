@@ -6,4 +6,9 @@ export default defineConfig({
     target: 'esnext',
     chunkSizeWarningLimit: 2000,
   },
+  server: {
+    watch: {
+      ignored: ['**/*.crdownload', '**/~$*', '**/.~lock.*'],
+    },
+  },
 });

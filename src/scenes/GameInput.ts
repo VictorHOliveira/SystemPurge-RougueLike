@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, TRAP_DMG_MIN, TRAP_DMG_MAX } from '../constants';
+import { MAP_W, MAP_H, TILE, MOVE_COOLDOWN_BASE, TWEEN_DURATION_BASE, SHOOT_COOLDOWN_BASE, TRAP_DMG_MIN, TRAP_DMG_MAX } from '../constants';
 import { TileType } from '../data/tiles';
 import { rollUpgrades } from '../data/upgrades';
 import { sound } from '../audio/SoundManager';
@@ -136,10 +136,8 @@ export class InputHandler {
     const s = this.game.state;
     if (s.map.tiles[ny][nx] !== TileType.TRAP) return;
     const floor = s.player.floor;
-    const dmg = Phaser.Math.Between(TRAP_DMG_MIN + Math.floor(floor / 3), TRAP_DMG_MAX + Math.floor(floor / 2));
-    s.player.takeDamage(dmg);
-    this.game.renderSystem.spawnParticles(nx, ny, 0xff4444, 6);
-    s.messageLog.add(`Armadilha de dados! -${dmg} HP`);
+    const dmg = Phaser.Math.Between(TRAP_DMG_MIN + Math.floor(floor / 5), TRAP_DMG_MAX + Math.floor(floor / 4));
+    this.game.combatSystem.applyTrapDamage(dmg, nx, ny);
     s.map.setTile(nx, ny, TileType.BURNED);
     this.game.renderSystem.markDirty(nx, ny);
   }
@@ -182,6 +180,15 @@ export class InputHandler {
     }
   }
 
+  private tryShoot(e: KeyboardEvent, dx: number, dy: number): void {
+    if (!this.game.state.player.classDef.canShoot) return;
+    if (this.game.isAnimating || this.game.shootCooldown > 0) return;
+    if (!this.game.state.turnSystem?.isPlayerTurn) return;
+    e.preventDefault();
+    this.game.shootCooldown = SHOOT_COOLDOWN_BASE / this.game.state.player.effectiveMoveSpeed;
+    this.game.projectileSystem.fireProjectile(dx, dy);
+  }
+
   private handleInput = (e: KeyboardEvent) => {
     const keyName = keyNameFromEvent(e);
     if (!keyName) return;
@@ -216,28 +223,16 @@ export class InputHandler {
         this.game.actionSystem.useAbility(2);
         return;
       case 'shoot_up':
-        if (!this.game.state.player.classDef.canShoot) return;
-        if (this.game.isAnimating) return;
-        if (!this.game.state.turnSystem?.isPlayerTurn) return;
-        this.game.projectileSystem.fireProjectile(0, -1);
+        this.tryShoot(e, 0, -1);
         return;
       case 'shoot_down':
-        if (!this.game.state.player.classDef.canShoot) return;
-        if (this.game.isAnimating) return;
-        if (!this.game.state.turnSystem?.isPlayerTurn) return;
-        this.game.projectileSystem.fireProjectile(0, 1);
+        this.tryShoot(e, 0, 1);
         return;
       case 'shoot_left':
-        if (!this.game.state.player.classDef.canShoot) return;
-        if (this.game.isAnimating) return;
-        if (!this.game.state.turnSystem?.isPlayerTurn) return;
-        this.game.projectileSystem.fireProjectile(-1, 0);
+        this.tryShoot(e, -1, 0);
         return;
       case 'shoot_right':
-        if (!this.game.state.player.classDef.canShoot) return;
-        if (this.game.isAnimating) return;
-        if (!this.game.state.turnSystem?.isPlayerTurn) return;
-        this.game.projectileSystem.fireProjectile(1, 0);
+        this.tryShoot(e, 1, 0);
         return;
       case 'item_0':
         this.game.actionSystem.useItem(0);

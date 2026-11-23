@@ -44,7 +44,10 @@ const DEFAULTS: Bindings = {
   restart: 'R',
 };
 
+let cachedBindings: Bindings | null = null;
+
 export function loadBindings(): Bindings {
+  if (cachedBindings) return cachedBindings;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -53,19 +56,23 @@ export function loadBindings(): Bindings {
       for (const key of GAME_ACTIONS) {
         if (typeof parsed[key] === 'string') b[key] = parsed[key].toUpperCase();
       }
+      cachedBindings = b;
       return b;
     }
   } catch { }
-  return { ...DEFAULTS };
+  cachedBindings = { ...DEFAULTS };
+  return cachedBindings;
 }
 
 export function saveBindings(b: Bindings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(b));
+  cachedBindings = { ...b };
 }
 
 export function resetDefaults(): Bindings {
   localStorage.removeItem(STORAGE_KEY);
-  return { ...DEFAULTS };
+  cachedBindings = { ...DEFAULTS };
+  return cachedBindings;
 }
 
 const DOM_TO_KEY: Record<string, string> = {

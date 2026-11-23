@@ -3,13 +3,15 @@ import { GameState } from './GameState';
 import type { FOVSystem } from './FOV';
 import { Entity } from '../entities/Entity';
 import { Enemy } from '../entities/Enemy';
-import { TILE, isAdjacent, HEALTH_PATCH_HEAL, NETWORK_PULSE_DMG, AOE_DAMAGE, DOT_RANGE, BLEED_DAMAGE } from '../constants';
+import { TILE, isAdjacent, HEALTH_PATCH_HEAL_PERCENT, BOSS_HEAL_PERCENT, OVERCLOCK_ATK_BONUS, OVERCLOCK_DURATION, DEFRAG_DEF_BONUS, DEFRAG_DURATION, NETWORK_PULSE_DMG, AOE_DAMAGE, DOT_RANGE, BLEED_DAMAGE } from '../constants';
 import { ALL_UPGRADES, rollRewards, type Upgrade, type RewardOption } from '../data/upgrades';
 import { ALL_ITEMS, type ItemDef } from '../data/items';
 import { sound } from '../audio/SoundManager';
 import { trackEvent } from '../analytics';
 import { Player } from '../entities/Player';
 import { MessageLog } from '../ui/MessageLog';
+import { showToast } from '../ui/Toast';
+import { COLORS } from '../theme';
 import type { ClassAbility } from '../data/classes';
 
 function rewardUpgrades(rolled: RewardOption[]): Upgrade[] {
@@ -21,8 +23,9 @@ function rewardItems(rolled: RewardOption[]): ItemDef[] {
 }
 
 export interface ActionCallbacks {
-  meleeAttack: (attacker: Entity, defender: Entity, isProjectile?: boolean) => void;
+  meleeAttack: (attacker: Entity, defender: Entity, isProjectile?: boolean, damageMultiplier?: number) => void;
   spawnParticles: (x: number, y: number, tint: number, count?: number) => void;
+  spawnFx?: (x: number, y: number, key: string, size?: number, duration?: number) => void;
   onEnemyDeath: (enemy: Enemy) => void;
   getDirEnemy: (dx: number, dy: number) => { x: number; y: number; enemy: Enemy | null };
   onAnimationStart: () => void;
@@ -100,19 +103,24 @@ export class ActionSystem {
     if (!itemId) return;
 
     switch (itemId) {
-      case 'health_patch':
-        player.heal(HEALTH_PATCH_HEAL);
-        messageLog.add('Usou Patch de Sau\u0301de: +15 HP.');
+      case 'health_patch': {
+        const healAmount = Math.max(1, Math.floor(player.maxHp * HEALTH_PATCH_HEAL_PERCENT));
+        const healed = player.heal(healAmount);
+        this.callbacks.spawnFx?.(player.x, player.y, 'fx_heal', TILE, 400);
+        messageLog.add(`Usou Patch de Saúde: +${healed} HP.`);
         break;
+      }
       case 'network_pulse': {
         let totalDmg = 0;
         for (const e of enemies) {
           if (!e.isAlive) continue;
           if (!map.visible[e.y]?.[e.x]) continue;
           const dmg = e.takeDamage(NETWORK_PULSE_DMG);
+          player.consumeAttackCharges();
           if (dmg > 0) totalDmg += dmg;
           if (!e.isAlive) this.callbacks.onEnemyDeath(e);
         }
+        this.callbacks.spawnFx?.(player.x, player.y, 'fx_explosion', TILE * 3, 450);
         messageLog.add(`Pulso de Rede: ${totalDmg} de dano total.`);
         break;
       }
@@ -124,17 +132,24 @@ export class ActionSystem {
         }
         fov.compute(map, player.x, player.y);
         this.callbacks.onMapRevealed?.();
-        messageLog.add('Packet Sniffer: mapa revelado.');
+        messageLog.add('Packet Sniffer: mapa do andar revelado.');
+        showToast(this.scene, {
+          title: 'MAPA DO ANDAR REVELADO',
+          detail: `/system/${player.floor} — todo o mapa agora está visível`,
+          color: COLORS.statVis,
+        });
         break;
       case 'overclock_inject':
-        player.tempAtkBonus = 5;
-        player.tempAtkCharges = 5;
-        messageLog.add('Overclock Inject: ATQ +5 por 5 ataques.');
+        player.tempAtkBonus = OVERCLOCK_ATK_BONUS;
+        player.tempAtkCharges = OVERCLOCK_DURATION;
+        this.callbacks.spawnFx?.(player.x, player.y, 'fx_levelup', 48, 500);
+        messageLog.add(`Overclock Inject: ATQ +${OVERCLOCK_ATK_BONUS} por ${OVERCLOCK_DURATION} ataques.`);
         break;
       case 'defrag_shield':
-        player.tempDefBonus = 5;
-        player.tempDefCharges = 5;
-        messageLog.add('Defrag Shield: DEF +5 por 5 ataques.');
+        player.tempDefBonus = DEFRAG_DEF_BONUS;
+        player.tempDefCharges = DEFRAG_DURATION;
+        this.callbacks.spawnFx?.(player.x, player.y, 'fx_shield', TILE, 400);
+        messageLog.add(`Defrag Shield: DEF +${DEFRAG_DEF_BONUS} por ${DEFRAG_DURATION} ataques.`);
         break;
     }
 
@@ -198,6 +213,7 @@ export class ActionSystem {
       const defVal = player.classDef.ignoreDefense ? 0 : e.defense;
       const dmg = Math.max(1, player.effectiveAtk - defVal);
       e.takeDamage(dmg);
+      player.consumeAttackCharges();
       hitCount++;
       this.callbacks.spawnParticles(e.x, e.y, 0x00ff88, 5);
       messageLog.add(`${e.name} atingido por ${dmg}.`);
@@ -205,6 +221,7 @@ export class ActionSystem {
       if (!e.isAlive) this.callbacks.onEnemyDeath(e);
     }
     messageLog.add(`Varredura: ${hitCount} inimigo(s) atingido(s).`);
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_slash', TILE * 2.2, 300);
 
     const ring = this.getRing();
     ring.lineStyle(3, 0x00ff88, 0.8);
@@ -223,42 +240,54 @@ export class ActionSystem {
   }
 
   private doProjectileBarrage(player: Player, enemies: Enemy[], messageLog: MessageLog) {
-    const dirs: [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    const hits: { enemy: Enemy; tx: number; ty: number }[] = [];
-    for (const [dx, dy] of dirs) {
+    const dirs: [number, number][] = [
+      [1, 0], [1, 1], [0, 1], [-1, 1],
+      [-1, 0], [-1, -1], [0, -1], [1, -1],
+    ];
+    let baseIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < dirs.length; i++) {
+      const [dx, dy] = dirs[i];
       const target = this.callbacks.getDirEnemy(dx, dy);
-      if (target.enemy) hits.push({ enemy: target.enemy, tx: target.x, ty: target.y });
+      if (!target.enemy) continue;
+      const dist = Math.max(Math.abs(target.enemy.x - player.x), Math.abs(target.enemy.y - player.y));
+      if (dist < bestDist) {
+        bestDist = dist;
+        baseIdx = i;
+      }
     }
-    if (hits.length === 0) {
+    if (bestDist === Infinity) {
       messageLog.add('Rajada de Pacotes: nenhum alvo.');
       return;
     }
+
+    const fanIdx = [(baseIdx + dirs.length - 1) % dirs.length, baseIdx, (baseIdx + 1) % dirs.length];
+    const shots = fanIdx.map(i => ({ dir: dirs[i], target: this.callbacks.getDirEnemy(...dirs[i]) }));
+    const hitIds = new Set<string>();
     sound.play('projectile');
     this.callbacks.onAnimationStart();
     let completed = 0;
-    for (const hit of hits) {
+    for (const shot of shots) {
       const proj = this.getProjImage();
       proj.setTexture(this.projectileTexture);
       proj.setPosition(player.x * TILE + TILE / 2, player.y * TILE + TILE / 2);
       this.scene.tweens.add({
         targets: proj,
-        x: hit.tx * TILE + TILE / 2,
-        y: hit.ty * TILE + TILE / 2,
-        duration: 100,
+        x: shot.target.x * TILE + TILE / 2,
+        y: shot.target.y * TILE + TILE / 2,
+        duration: 110,
         ease: 'Linear',
         onComplete: () => {
           proj.setVisible(false);
-          const baseDmg = Math.max(1, player.effectiveAtk - hit.enemy.defense);
-          const dmg = Math.floor(baseDmg * 1.5);
-          hit.enemy.takeDamage(dmg);
-          sound.play('enemy_hit');
-          this.callbacks.spawnParticles(hit.enemy.x, hit.enemy.y, 0x44aaff, 4);
-          messageLog.add(`Rajada: ${hit.enemy.name} tomou ${dmg}.`);
-          if (!hit.enemy.isAlive) this.callbacks.onEnemyDeath(hit.enemy);
+          const enemy = shot.target.enemy;
+          if (enemy?.isAlive && !hitIds.has(enemy.id)) {
+            hitIds.add(enemy.id);
+            this.callbacks.meleeAttack(player, enemy, true, 1.5);
+          }
           completed++;
-          if (completed === hits.length) {
+          if (completed === shots.length) {
             this.callbacks.onAnimationEnd();
-            messageLog.add(`Rajada de Pacotes: ${hits.length} alvo(s) atingido(s).`);
+            messageLog.add(`Rajada de Pacotes: ${hitIds.size} alvo(s) atingido(s).`);
             this.callbacks.endTurn();
           }
         },
@@ -281,6 +310,7 @@ export class ActionSystem {
       const dy = Math.abs(player.y - e.y);
       if (Math.max(dx, dy) > aoeRange) continue;
       const dmg = e.takeDamage(ability.damage ?? AOE_DAMAGE);
+      player.consumeAttackCharges();
       totalDmg += dmg;
       hitCount++;
       messageLog.add(`${e.name} atingido por ${dmg}.`);
@@ -292,6 +322,7 @@ export class ActionSystem {
       if (!e.isAlive) this.callbacks.onEnemyDeath(e);
     }
     messageLog.add(`Overflow: ${hitCount} inimigo(s) atingido(s), ${totalDmg} de dano total.`);
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_explosion', TILE * (aoeRange * 2 + 1), 450);
     const cx = player.x * TILE + TILE / 2;
     const cy = player.y * TILE + TILE / 2;
     const r = aoeRange * TILE;
@@ -328,6 +359,7 @@ export class ActionSystem {
     }
     if (target) {
       const dmg = target.takeDamage(ability.damage ?? 10);
+      player.consumeAttackCharges();
       messageLog.add(`${ability.name}: ${dmg} de dano.`);
       this.callbacks.spawnParticles(target.x, target.y, 0x66ff66, 4);
       sound.play('enemy_hit');
@@ -357,18 +389,21 @@ export class ActionSystem {
     const missing = player.maxHp - player.hp;
     const healAmt = Math.max(1, Math.floor(missing * 0.5));
     player.heal(healAmt);
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_heal', TILE, 450);
     messageLog.add(`Restaura\u00e7\u00e3o de Sistema: +${healAmt} HP.`);
   }
 
   private doSelfBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
-    player.tempAtkBonus = ability.damage ?? 5;
-    player.tempAtkCharges = ability.duration ?? 4;
-    messageLog.add(`Sobrecarga de Kernel: ATQ +${player.tempAtkBonus} por ${player.tempAtkCharges} ataques.`);
+    player.tempAtkMultiplier = ability.damage ?? 2;
+    player.tempAtkBonus = 0;
+    player.tempAtkCharges = ability.duration ?? 10;
+    messageLog.add(`Sobrecarga de Kernel: ATQ \u00d7${player.tempAtkMultiplier} por ${player.tempAtkCharges} ataques.`);
   }
 
   private doShield(ability: ClassAbility, player: Player, messageLog: MessageLog) {
-    player.shieldNextHit = true;
-    messageLog.add('Barreira de Protocolo: pr\u00f3ximo ataque ser\u00e1 absorvido.');
+    player.shieldCharges = ability.duration ?? 2;
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_shield', TILE, 450);
+    messageLog.add(`Barreira de Protocolo: ${player.shieldCharges} ataques ser\u00e3o absorvidos.`);
   }
 
   private doKnockback(ability: ClassAbility, player: Player, enemies: Enemy[], messageLog: MessageLog) {
@@ -396,6 +431,7 @@ export class ActionSystem {
 
   private doReflectBuff(ability: ClassAbility, player: Player, messageLog: MessageLog) {
     player.reflectBuffCharges = ability.duration ?? 2;
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_shield', TILE, 450);
     messageLog.add(`Espelhamento: 100% de refletir dano por ${player.reflectBuffCharges} ataques.`);
   }
 
@@ -407,6 +443,7 @@ export class ActionSystem {
     this.state.chests.set(ck, true);
     sound.play('chest_open');
     this.callbacks.spawnParticles(x, y, 0xffd700, 6);
+    this.callbacks.spawnFx?.(x, y, 'fx_levelup', 48, 500);
 
     const rolled = rollRewards(player.acquiredUpgrades, player.freeSlots(), 3, this.state.classId);
     if (rolled.length === 0) {
@@ -459,6 +496,7 @@ export class ActionSystem {
       acquired: player.acquiredUpgrades,
       mode,
       floor: player.floor,
+      title: source === 'level' ? `RECOMPENSA POR NÍVEL — Nv ${player.level}` : undefined,
       onSelect: (kind: 'upgrade' | 'item', id: string) => {
         if (kind === 'upgrade') {
           player.applyUpgrade(id);
@@ -482,18 +520,19 @@ export class ActionSystem {
     const upgOptions = rewardUpgrades(rolled);
 
     const showHealReward = (pickLabel: string) => {
+      const healAmount = Math.max(1, Math.floor(player.maxHp * BOSS_HEAL_PERCENT));
       this.scene.scene.pause();
       this.scene.scene.launch('Upgrade', {
         upgrades: [],
         items: [],
-        heals: [{ id: 'heal50', name: 'Recuperação', description: 'Recupera 50 HP', amount: 50 }],
+        heals: [{ id: 'heal_boss', name: 'Recuperação', description: `Recupera ${healAmount} HP`, amount: healAmount }],
         acquired: player.acquiredUpgrades,
         mode: 'reveal',
         pickCount: 1,
         floor: player.floor,
         title: `RECOMPENSA DO BOSS${pickLabel}`,
         onSelect: (_kind: 'upgrade' | 'item' | 'heal', _id: string) => {
-          const healed = player.heal(50);
+          const healed = player.heal(healAmount);
           messageLog.add(`Recuperação: +${healed} HP.`);
           this.state.fov.setRadius(player.effectiveFov);
           this.state.fov.compute(this.state.map, player.x, player.y);

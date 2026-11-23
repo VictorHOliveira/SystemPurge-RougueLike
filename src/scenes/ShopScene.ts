@@ -7,6 +7,7 @@ import { FONT, COLORS } from '../theme';
 interface SelectableItem {
   name: string;
   desc: string;
+  icon?: string;
   costLabel?: string;
   maxed: boolean;
   canAfford: boolean;
@@ -24,6 +25,7 @@ export class ShopScene extends Phaser.Scene {
   private maxScroll = 0;
   private meta = loadMeta();
   private bitsText!: Phaser.GameObjects.Text;
+  private bitsIcon?: Phaser.GameObjects.Image;
   private highlightBgs: Phaser.GameObjects.Graphics[] = [];
   private items: SelectableItem[] = [];
   private container!: Phaser.GameObjects.Container;
@@ -54,6 +56,9 @@ export class ShopScene extends Phaser.Scene {
       fontStyle: 'bold',
     }).setOrigin(0.5).setShadow(0, 0, COLORS.gold, 12, false, true);
 
+    if (this.textures.exists('ui_icon_bits')) {
+      this.bitsIcon = this.add.image(0, 78, 'ui_icon_bits').setDisplaySize(18, 18);
+    }
     this.bitsText = this.add.text(512, 78, '', {
       fontFamily: FONT,
       fontSize: '18px',
@@ -137,7 +142,13 @@ export class ShopScene extends Phaser.Scene {
       this.highlightBgs.push(bg);
       this.container.add(bg);
 
-      const name = this.add.text(180, y + 6, item.name, {
+      if (item.icon) {
+        const icon = this.add.image(184, y + ROW_H / 2 - 2, item.icon).setDisplaySize(20, 20);
+        this.container.add(icon);
+      }
+
+      const textX = item.icon ? 208 : 180;
+      const name = this.add.text(textX, y + 6, item.name, {
         fontFamily: FONT,
         fontSize: '14px',
         color: COLORS.lightText,
@@ -145,7 +156,7 @@ export class ShopScene extends Phaser.Scene {
       });
       this.container.add(name);
 
-      const desc = this.add.text(180, y + 26, item.desc, {
+      const desc = this.add.text(textX, y + 26, item.desc, {
         fontFamily: FONT,
         fontSize: '11px',
         color: COLORS.muted,
@@ -234,6 +245,9 @@ export class ShopScene extends Phaser.Scene {
 
   private updateBitsDisplay() {
     this.bitsText.setText(`Bits: ${this.meta.bits}`);
+    if (this.bitsIcon) {
+      this.bitsIcon.setPosition(512 - this.bitsText.width / 2 - 14, 78);
+    }
   }
 
   private refresh() {
@@ -288,6 +302,7 @@ export class ShopScene extends Phaser.Scene {
       const canBuy = this.meta.bits >= cost && !owned;
       items.push({
         name: def.name,
+        icon: def.icon,
         desc: `CD: ${def.cooldown}  |  ${def.description}`,
         costLabel: owned ? (active ? '[ATIVA]' : '[DESATIVADA]') : `${cost} Bits`,
         maxed: false,

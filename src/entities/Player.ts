@@ -1,5 +1,6 @@
 import { Entity } from './Entity';
 import { PlayerClass, ClassAbility } from '../data/classes';
+import { PROJECTILE_RANGE_BASE, TRAP_DAMAGE_CAP_PERCENT, TRAP_RESISTANCE_PER_LEVEL } from '../constants';
 
 export class Player extends Entity {
   xp: number;
@@ -13,10 +14,13 @@ export class Player extends Entity {
   acquiredUpgrades: Map<string, number> = new Map();
   inventory: (string | null)[] = [];
   tempAtkBonus: number = 0;
+  tempAtkMultiplier: number = 1;
   tempAtkCharges: number = 0;
   tempDefBonus: number = 0;
   tempDefCharges: number = 0;
   bonusFov: number = 0;
+  bonusProjectileRange: number = 0;
+  projectileDamageBonus: number = 0;
   moveSpeed: number;
   fatalGuardUsed: boolean = false;
   fatalGuardTriggered: boolean = false;
@@ -33,7 +37,7 @@ export class Player extends Entity {
   hasUsedAbility: boolean = false;
   extraBleedDamage: number = 0;
   overflowRange: number = 2;
-  shieldNextHit: boolean = false;
+  shieldCharges: number = 0;
   reflectBuffCharges: number = 0;
 
   constructor(classDef: PlayerClass, x: number, y: number) {
@@ -79,7 +83,7 @@ export class Player extends Entity {
   }
 
   get effectiveAtk(): number {
-    return this.attack + this.tempAtkBonus;
+    return Math.floor((this.attack + this.tempAtkBonus) * this.tempAtkMultiplier);
   }
 
   get effectiveDef(): number {
@@ -90,8 +94,29 @@ export class Player extends Entity {
     return this.classDef.fov + this.bonusFov;
   }
 
+  get projectileRange(): number {
+    return PROJECTILE_RANGE_BASE + this.bonusProjectileRange;
+  }
+
   get effectiveMoveSpeed(): number {
     return this.moveSpeed;
+  }
+
+  get shieldNextHit(): boolean {
+    return this.shieldCharges > 0;
+  }
+
+  set shieldNextHit(value: boolean) {
+    this.shieldCharges = value ? Math.max(1, this.shieldCharges) : 0;
+  }
+
+  get trapResistance(): number {
+    return Math.min(0.45, (this.acquiredUpgrades.get('trap_resistance') ?? 0) * TRAP_RESISTANCE_PER_LEVEL);
+  }
+
+  get trapDamageCap(): number {
+    const lvl = this.acquiredUpgrades.get('trap_resistance') ?? 0;
+    return Math.max(3, Math.ceil(this.maxHp * (TRAP_DAMAGE_CAP_PERCENT - lvl * 0.04)));
   }
 
   get hasDodge(): boolean {
@@ -136,6 +161,21 @@ export class Player extends Entity {
 
   get isBleeding(): boolean {
     return this.bleedTicks > 0;
+  }
+
+  consumeAttackCharges(): void {
+    if (this.tempAtkCharges <= 0) return;
+    this.tempAtkCharges--;
+    if (this.tempAtkCharges === 0) {
+      this.tempAtkBonus = 0;
+      this.tempAtkMultiplier = 1;
+    }
+  }
+
+  consumeShield(): boolean {
+    if (this.shieldCharges <= 0) return false;
+    this.shieldCharges--;
+    return true;
   }
 
   canUseAbility(index: number): boolean {
@@ -219,13 +259,14 @@ const UPGRADE_APPLY: Record<string, (p: Player, level: number) => void> = {
   memory_page: (p) => { p.defense += 3; },
   hyperthreading: (p) => { p.maxHp += 15; p.hp += 15; },
   data_bus: (p) => { p.attack += 2; p.bonusFov += 1; },
-  speed_boost: (p) => { p.moveSpeed += 0.5; },
+  speed_boost: (p) => { p.moveSpeed += 0.2; },
   life_steal: () => {},
   system_restore: (p) => { p.hp = p.maxHp; },
   compression_algorithm: (p, lvl) => { const bonus = lvl * 2; p.maxHp += bonus; p.hp += bonus; },
   lamina_energizada: () => {},
   golpe_duplo: () => {},
-  mira_a_laser: (p) => { p.attack += 3; },
+  mira_a_laser: (p) => { p.projectileDamageBonus += 3; },
+  projectile_range: (p) => { p.bonusProjectileRange += 2; },
   recarga_rapida: (p) => { p.cooldownReduction++; },
   escudo_reativo: (p) => { p.defense += 1; },
   campo_pressurizado: () => {},

@@ -27,42 +27,74 @@ export class BootScene extends Phaser.Scene {
     this.load.image('enemy_overflow', 'sprites/entities/overflow.dll.png');
     this.load.image('enemy_fragment', 'sprites/entities/fragment.png');
     this.load.image('projectile_player', 'sprites/entities/projectile_player.png');
+    this.load.image('projectile_daemon', 'sprites/entities/projectile_daemon.png');
     this.load.image('class_limpador', 'sprites/classes/class_limpador.png');
     this.load.image('class_ping', 'sprites/classes/class_ping.png');
     this.load.image('class_muralha', 'sprites/classes/class_muralha.png');
     this.load.image('class_daemon', 'sprites/classes/class_daemon.png');
+    this.load.image('class_limpador_hd', 'sprites/classes/class_limpador_hd.png');
+    this.load.image('class_ping_hd', 'sprites/classes/class_ping_hd.png');
+    this.load.image('class_muralha_hd', 'sprites/classes/class_muralha_hd.png');
+    this.load.image('class_daemon_hd', 'sprites/classes/class_daemon_hd.png');
+    this.load.image('tile_chest', 'sprites/tiles/tile_chest.png');
+    this.load.image('tile_chest_dim', 'sprites/tiles/tile_chest_dim.png');
+    this.load.image('tile_chest_opened', 'sprites/tiles/tile_chest_opened.png');
+    this.load.image('tile_chest_opened_dim', 'sprites/tiles/tile_chest_opened_dim.png');
+    this.load.image('tile_trap', 'sprites/tiles/tile_trap.png');
+    this.load.image('tile_trap_dim', 'sprites/tiles/tile_trap_dim.png');
+    this.load.image('tile_altar', 'sprites/tiles/tile_altar.png');
+    this.load.image('tile_altar_dim', 'sprites/tiles/tile_altar_dim.png');
+    this.load.image('item_health_patch', 'sprites/ui/item_health_patch.png');
+    this.load.image('item_network_pulse', 'sprites/ui/item_network_pulse.png');
+    this.load.image('item_packet_sniffer', 'sprites/ui/item_packet_sniffer.png');
+    this.load.image('item_overclock_inject', 'sprites/ui/item_overclock_inject.png');
+    this.load.image('item_defrag_shield', 'sprites/ui/item_defrag_shield.png');
+    this.load.image('ability_varredura', 'sprites/ui/ability_varredura.png');
+    this.load.image('ability_rajada', 'sprites/ui/ability_rajada.png');
+    this.load.image('ability_criptografia', 'sprites/ui/ability_criptografia.png');
+    this.load.image('ability_overflow', 'sprites/ui/ability_overflow.png');
+    this.load.image('ability_vazamento', 'sprites/ui/ability_vazamento.png');
+    this.load.image('ability_injecao_virus', 'sprites/ui/ability_injecao_virus.png');
+    this.load.image('ability_pulso_emergencia', 'sprites/ui/ability_pulso_emergencia.png');
+    this.load.image('ability_sobrecarga_kernel', 'sprites/ui/ability_sobrecarga_kernel.png');
+    this.load.image('ability_barreira_protocolo', 'sprites/ui/ability_barreira_protocolo.png');
+    this.load.image('ability_restauracao_sistema', 'sprites/ui/ability_restauracao_sistema.png');
+    this.load.image('ability_espelhamento', 'sprites/ui/ability_espelhamento.png');
+    this.load.image('status_bleed', 'sprites/ui/status_bleed.png');
+    this.load.image('status_crypto', 'sprites/ui/status_crypto.png');
+    this.load.image('status_boot', 'sprites/ui/status_boot.png');
+    this.load.image('status_overclock', 'sprites/ui/status_overclock.png');
+    this.load.image('status_defrag', 'sprites/ui/status_defrag.png');
+    this.load.image('status_reflect', 'sprites/ui/status_reflect.png');
+    this.load.image('status_dodge', 'sprites/ui/status_dodge.png');
+    this.load.image('status_regen', 'sprites/ui/status_regen.png');
+    this.load.image('ui_menu_bg', 'sprites/ui/menu_bg.png');
+    this.load.image('ui_panel_frame', 'sprites/ui/panel_frame_trim.png');
+    this.load.image('ui_class_card_frame', 'sprites/ui/class_card_frame.png');
+    this.load.image('ui_selector', 'sprites/ui/selector_alpha.png');
+    this.load.image('ui_icon_bits', 'sprites/ui/icon_bits.png');
+    this.load.image('ui_upgrade_atk', 'sprites/ui/upgrade_atk.png');
+    this.load.image('ui_upgrade_def', 'sprites/ui/upgrade_def.png');
+    this.load.image('ui_upgrade_hp', 'sprites/ui/upgrade_hp.png');
+    this.load.image('ui_upgrade_vis', 'sprites/ui/upgrade_vis.png');
+    this.load.image('ui_upgrade_speed', 'sprites/ui/upgrade_speed.png');
+    this.load.image('ui_upgrade_passive', 'sprites/ui/upgrade_passive.png');
+    this.load.image('fx_impact', 'sprites/fx/impact.png');
+    this.load.image('fx_slash', 'sprites/fx/slash.png');
+    this.load.image('fx_explosion', 'sprites/fx/explosion.png');
+    this.load.image('fx_heal', 'sprites/fx/heal.png');
+    this.load.image('fx_bleed', 'sprites/fx/bleed.png');
+    this.load.image('fx_levelup', 'sprites/fx/levelup.png');
+    this.load.image('fx_boss_aura', 'sprites/fx/boss_aura.png');
+    this.load.image('fx_stairs_glow', 'sprites/fx/stairs_glow.png');
+    this.load.image('fx_shield', 'sprites/fx/shield.png');
   }
 
   create() {
-    this.generateTiles();
     this.generateParticleTexture();
-    this.generateProjectileTextures();
-    this.generateSpecialTileTextures();
     sound.init();
     trackEvent('game_start', { version });
     this.scene.start('MainMenu');
-  }
-
-  private generateTiles() {
-    this.chestTile('tile_chest', 0x5c3a1e, 0x8b5e3c, 0xffd700);
-    this.chestTile('tile_chest_dim', 0x2e1d0f, 0x3a2513, 0x665500);
-    this.chestOpenedTile('tile_chest_opened', 0x5c3a1e, 0x2a1505, 0x8b5e3c);
-    this.chestOpenedTile('tile_chest_opened_dim', 0x2e1d0f, 0x150a02, 0x3a2513);
-  }
-
-  private chestTile(key: string, body: number, lid: number, lock: number) {
-    const g = this.add.graphics();
-    g.fillStyle(body);
-    g.fillRect(4, 10, 24, 18);
-    g.fillStyle(lid);
-    g.fillRect(2, 4, 28, 8);
-    g.fillStyle(lock);
-    g.fillRect(13, 14, 6, 4);
-    g.lineStyle(1, 0x000000, 0.3);
-    g.strokeRect(4, 10, 24, 18);
-    g.strokeRect(2, 4, 28, 8);
-    g.generateTexture(key, 32, 32);
-    g.destroy();
   }
 
   private generateParticleTexture() {
@@ -73,69 +105,4 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
-  private generateProjectileTextures() {
-    const g = this.add.graphics();
-    g.fillStyle(0x4488ff);
-    g.fillCircle(6, 6, 6);
-    g.fillStyle(0xaaddff, 0.5);
-    g.fillCircle(6, 6, 3);
-    g.generateTexture('projectile_daemon', 12, 12);
-    g.destroy();
-  }
-
-  private generateSpecialTileTextures() {
-    const g = this.add.graphics();
-
-    g.fillStyle(0x882222);
-    g.fillRect(0, 0, 32, 32);
-    g.fillStyle(0xcc4444);
-    g.fillTriangle(16, 4, 6, 26, 26, 26);
-    g.lineStyle(1, 0xaa3333);
-    g.strokeRect(0, 0, 32, 32);
-    g.generateTexture('tile_trap', 32, 32);
-    g.clear();
-
-    g.fillStyle(0x6622aa);
-    g.fillRect(0, 0, 32, 32);
-    g.fillStyle(0xffd700);
-    g.fillCircle(16, 16, 8);
-    g.fillStyle(0x6622aa);
-    g.fillCircle(16, 16, 4);
-    g.lineStyle(1, 0x8833cc);
-    g.strokeRect(0, 0, 32, 32);
-    g.generateTexture('tile_altar', 32, 32);
-    g.clear();
-    g.fillStyle(0x441177);
-    g.fillRect(0, 0, 32, 32);
-    g.fillStyle(0xccaaff);
-    g.fillCircle(16, 16, 6);
-    g.lineStyle(1, 0x6622aa);
-    g.strokeRect(0, 0, 32, 32);
-    g.generateTexture('tile_altar_dim', 32, 32);
-    g.clear();
-    g.fillStyle(0x551111);
-    g.fillRect(0, 0, 32, 32);
-    g.fillStyle(0x883333);
-    g.fillTriangle(16, 6, 8, 24, 24, 24);
-    g.lineStyle(1, 0x661111);
-    g.strokeRect(0, 0, 32, 32);
-    g.generateTexture('tile_trap_dim', 32, 32);
-    g.destroy();
-  }
-
-
-  private chestOpenedTile(key: string, body: number, interior: number, lid: number) {
-    const g = this.add.graphics();
-    g.fillStyle(body);
-    g.fillRect(4, 12, 24, 16);
-    g.fillStyle(interior);
-    g.fillRect(6, 14, 20, 10);
-    g.fillStyle(lid);
-    g.fillRect(2, 0, 28, 7);
-    g.lineStyle(1, 0x000000, 0.3);
-    g.strokeRect(4, 12, 24, 16);
-    g.strokeRect(2, 0, 28, 7);
-    g.generateTexture(key, 32, 32);
-    g.destroy();
-  }
 }

@@ -13,6 +13,9 @@ const BLEED_BITS = ['0', '1'];
 export interface CombatCallbacks {
   onEnemyDeath: (enemy: Enemy) => void;
   spawnParticles: (x: number, y: number, tint: number, count?: number) => void;
+  spawnFx?: (x: number, y: number, key: string, size?: number, duration?: number) => void;
+  spawnEnemyProjectile?: (fromX: number, fromY: number, toX: number, toY: number) => void;
+  onPlayerDamaged?: (amount: number, x: number, y: number) => void;
   enemyAt?: (x: number, y: number) => Enemy | null;
 }
 
@@ -31,11 +34,12 @@ export class CombatSystem {
     this.callbacks = callbacks;
   }
 
-  rebuildEnemyMap() {
+  clearEnemyMap() {
     this.enemyMap.clear();
-    for (const e of this.state.enemies) {
-      if (e.isAlive) this.enemyMap.set(e.id, e);
-    }
+  }
+
+  addEnemy(e: Enemy) {
+    if (e.isAlive) this.enemyMap.set(e.id, e);
   }
 
   private getEnemyAt(x: number, y: number): Enemy | null {
@@ -61,7 +65,35 @@ export class CombatSystem {
     this.bleedPoolIdx = 0;
   }
 
-  meleeAttack(attacker: Entity, defender: Entity, isProjectile: boolean = false) {
+  private notifyPlayerDamage(dealt: number, player: Player): void {
+    if (dealt > 0) this.callbacks.onPlayerDamaged?.(dealt, player.x, player.y);
+  }
+
+  private absorbHit(player: Player, source: string): boolean {
+    if (!player.consumeShield()) return false;
+    this.state.messageLog.add(`${source}: ataque absorvido (${player.shieldCharges} restante(s)).`);
+    this.callbacks.spawnParticles(player.x, player.y, 0x44ddff, 6);
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_shield', TILE, 400);
+    return true;
+  }
+
+  applyTrapDamage(amount: number, x: number, y: number): number {
+    const { player, messageLog } = this.state;
+    if (!player.isAlive || player.fatalGuardTriggered) return 0;
+    if (this.absorbHit(player, 'Barreira de Protocolo')) return 0;
+
+    const reduced = Math.max(1, Math.floor(amount * (1 - player.trapResistance)));
+    const dealt = Math.min(reduced, player.trapDamageCap);
+    player.takeDamage(dealt);
+    messageLog.add(`Armadilha de dados! -${dealt} HP`);
+    this.callbacks.spawnParticles(x, y, 0xff4444, 6);
+    this.notifyPlayerDamage(dealt, player);
+    this.checkFatalGuard(player, dealt);
+    if (!player.isAlive) messageLog.add(`${player.classDef.name} foi derrubado.`);
+    return dealt;
+  }
+
+  meleeAttack(attacker: Entity, defender: Entity, isProjectile: boolean = false, damageMultiplier: number = 1) {
     const { player, messageLog, enemyBleeds } = this.state;
     const isPlayerDef = defender === player;
     const isPlayerAtk = attacker === player;
@@ -74,14 +106,9 @@ export class CombatSystem {
       return;
     }
 
-    if (isPlayerDef && player.shieldNextHit) {
-      player.shieldNextHit = false;
-      messageLog.add('Barreira de Protocolo absorveu o ataque!');
-      this.callbacks.spawnParticles(player.x, player.y, 0x44ddff, 6);
-      return;
-    }
+    if (isPlayerDef && this.absorbHit(player, 'Barreira de Protocolo')) return;
 
-    const dmg = this.calcDamage(attacker, defender, isPlayerAtk, isPlayerDef, isProjectile);
+    const dmg = this.calcDamage(attacker, defender, isPlayerAtk, isPlayerDef, isProjectile, damageMultiplier);
     if (dmg <= 0) return;
 
     const dealt = defender.takeDamage(dmg);
@@ -91,15 +118,15 @@ export class CombatSystem {
 
     if (isPlayerAtk && dealt > 0 && isEnemyDef) {
       this.callbacks.spawnParticles(defender.x, defender.y, 0x00ff88, 4);
+      this.callbacks.spawnFx?.(defender.x, defender.y, isProjectile ? 'fx_impact' : 'fx_slash', TILE, 250);
       this.applyLifeSteal(player, messageLog);
       this.applyBleed(player, defender as Enemy, enemyBleeds, messageLog);
-      if (player.tempAtkCharges > 0) {
-        player.tempAtkCharges--;
-        if (player.tempAtkCharges === 0) player.tempAtkBonus = 0;
-      }
+      player.consumeAttackCharges();
     }
 
     if (isPlayerDef) {
+      this.callbacks.spawnFx?.(player.x, player.y, 'fx_impact', TILE, 250);
+      this.notifyPlayerDamage(dealt, player);
       this.applyReflect(attacker, player, dealt, messageLog);
       if (player.tempDefCharges > 0) {
         player.tempDefCharges--;
@@ -118,7 +145,7 @@ export class CombatSystem {
     }
   }
 
-  private calcDamage(attacker: Entity, defender: Entity, isPlayerAtk: boolean, isPlayerDef: boolean, isProjectile: boolean): number {
+  private calcDamage(attacker: Entity, defender: Entity, isPlayerAtk: boolean, isPlayerDef: boolean, isProjectile: boolean, damageMultiplier: number = 1): number {
     const { player } = this.state;
 
     if (isPlayerAtk && !isProjectile && !player.classDef.canMelee) return 0;
@@ -130,6 +157,11 @@ export class CombatSystem {
     if (isPlayerAtk && player.classDef.ignoreDefense) defVal = 0;
 
     let dmg = Math.max(1, atkVal - defVal);
+
+    if (isPlayerAtk && isProjectile) {
+      dmg += player.projectileDamageBonus;
+      dmg = Math.floor(dmg * player.classDef.rangedMultiplier * damageMultiplier);
+    }
 
     if (isPlayerAtk && !isProjectile) {
       const cd = player.classDef;
@@ -201,6 +233,7 @@ export class CombatSystem {
       const dealt2 = defender.takeDamage(dmg2);
       messageLog.add(`Golpe Duplo! +${dealt2} de dano.`);
       sound.play('enemy_hit');
+      this.callbacks.spawnFx?.(defender.x, defender.y, 'fx_slash', TILE, 250);
       if (!defender.isAlive) this.callbacks.onEnemyDeath(defender);
     }
   }
@@ -234,12 +267,16 @@ export class CombatSystem {
 
   suicideExplosion(enemy: Enemy, player: Player) {
     if (player.fatalGuardTriggered) return;
+    sound.play('player_hit');
+    this.callbacks.spawnParticles(enemy.x, enemy.y, 0xff2200, 12);
+    this.callbacks.spawnFx?.(enemy.x, enemy.y, 'fx_explosion', 48, 400);
+    enemy.hp = 0;
+    if (this.absorbHit(player, 'Barreira de Protocolo')) return;
+
     const dmg = Math.max(3, enemy.attack * 2);
     const dealt = player.takeDamage(dmg);
     this.state.messageLog.add(`${enemy.name} EXPLODE causando ${dealt} de dano!`);
-    sound.play('player_hit');
-    this.callbacks.spawnParticles(enemy.x, enemy.y, 0xff2200, 12);
-    enemy.hp = 0;
+    this.notifyPlayerDamage(dealt, player);
     if (player.tempDefCharges > 0) {
       player.tempDefCharges--;
       if (player.tempDefCharges === 0) player.tempDefBonus = 0;
@@ -250,11 +287,16 @@ export class CombatSystem {
 
   rangedAttack(enemy: Enemy, player: Player) {
     if (player.fatalGuardTriggered) return;
+    this.callbacks.spawnEnemyProjectile?.(enemy.x, enemy.y, player.x, player.y);
+    if (this.absorbHit(player, 'Barreira de Protocolo')) return;
+
     const dmg = Math.max(1, enemy.attack - player.effectiveDef);
     const dealt = player.takeDamage(dmg);
-    this.state.messageLog.add(`${enemy.name} dispara em ${player.classDef.name}: ${dealt} de dano.`);
+    this.state.messageLog.add(`${enemy.name} acerta ${player.classDef.name} com ${dealt} de dano.`);
     sound.play('player_hit');
     this.callbacks.spawnParticles(player.x, player.y, 0xff8800, 5);
+    this.callbacks.spawnFx?.(player.x, player.y, 'fx_impact', TILE, 250);
+    this.notifyPlayerDamage(dealt, player);
     if (player.tempDefCharges > 0) {
       player.tempDefCharges--;
       if (player.tempDefCharges === 0) player.tempDefBonus = 0;
@@ -292,6 +334,7 @@ export class CombatSystem {
       }
       enemy.takeDamage(bleed.damage);
       messageLog.add(`${enemy.name} sangra: ${bleed.damage} de dano.`);
+      this.callbacks.spawnFx?.(enemy.x, enemy.y, 'fx_bleed', TILE, 350);
 
       for (let i = 0; i < 3; i++) {
         const bit = this.getBleedText();

@@ -9,6 +9,8 @@ export interface EnemyTemplate {
   textureKey: string;
   behavior: EnemyBehavior;
   minFloor: number;
+  rangedRange?: number;
+  fleeDistance?: number;
   splitOnDeath?: string;
 }
 
@@ -52,6 +54,20 @@ export const ENEMY_TEMPLATES: EnemyTemplate[] = [
     textureKey: 'enemy_malware',
     behavior: 'ranged',
     minFloor: 4,
+    rangedRange: 5,
+    fleeDistance: 3,
+  },
+  {
+    name: 'backdoor.bin',
+    hp: 12,
+    attack: 4,
+    defense: 2,
+    color: 0x44aaff,
+    textureKey: 'enemy_malware',
+    behavior: 'ranged',
+    minFloor: 15,
+    rangedRange: 7,
+    fleeDistance: 4,
   },
   {
     name: 'ransomware.exe',
